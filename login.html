@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PlumaScript</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            appBg: "#060913",
+            panelSoft: "#121A2D",
+            borderSoft: "#1A2741",
+            textSoft: "#8FA0BF",
+            accent: "#F2B24D"
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    body {
+      background: radial-gradient(circle at 20% -20%, #1d2d50 0%, #060913 42%), #060913;
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-appBg text-white antialiased flex items-center justify-center p-4">
+  <div class="relative w-full max-w-md rounded-2xl border border-borderSoft bg-panelSoft p-8 shadow-2xl">
+    
+    <div class="absolute right-6 top-6 flex items-center rounded-lg bg-[#060913] p-1 border border-borderSoft">
+      <button id="langCs" onclick="setLanguage('cs')" class="rounded-md bg-panelSoft px-2 py-1 text-xs font-bold text-white transition">CZ</button>
+      <button id="langEn" onclick="setLanguage('en')" class="rounded-md px-2 py-1 text-xs font-bold text-textSoft transition hover:text-white">EN</button>
+    </div>
+
+    <div class="mb-8 mt-4 flex flex-col items-center text-center">
+      <div class="mb-4 grid h-12 w-12 place-items-center rounded-xl bg-accent/15 text-accent">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M5 3h14v6a7 7 0 0 1-14 0V3z"></path>
+          <path d="M8 21h8"></path>
+          <path d="M12 17v4"></path>
+        </svg>
+      </div>
+      <h1 data-i18n="welcome" class="text-2xl font-bold">Vítejte zpět</h1>
+      <p data-i18n="subtitle" class="text-sm text-textSoft mt-1">Přihlaste se do svého studia PlumaScript</p>
+    </div>
+
+    <div id="tabsContainer" class="mb-6 flex rounded-lg bg-[#060913] p-1 border border-borderSoft">
+      <button onclick="switchMode('login')" id="tabLogin" data-i18n="tabLogin" class="flex-1 rounded-md bg-panelSoft py-2 text-sm font-bold text-white transition">Přihlášení</button>
+      <button onclick="switchMode('register')" id="tabRegister" data-i18n="tabRegister" class="flex-1 rounded-md py-2 text-sm font-bold text-textSoft transition hover:text-white">Nová registrace</button>
+    </div>
+
+    <form id="loginForm" class="space-y-4">
+      <div class="space-y-2">
+        <label data-i18n="emailLabel" class="text-xs font-semibold uppercase text-textSoft">E-mail</label>
+        <input type="email" id="loginEmail" required class="w-full rounded-xl border border-borderSoft bg-[#17223A] p-3 text-sm focus:outline-none focus:ring-1 focus:ring-accent" placeholder="tvuj@email.cz" data-i18n-placeholder="emailPlaceholder">
+      </div>
+      <div class="space-y-2">
+        <div class="flex items-center justify-between">
+          <label data-i18n="passwordLabel" class="text-xs font-semibold uppercase text-textSoft">Heslo</label>
+          <a href="#" onclick="switchMode('forgot'); return false;" data-i18n="forgotPassword" class="text-xs text-accent hover:underline">Zapomenuté heslo?</a>
+        </div>
+        <div class="relative">
+          <input type="password" id="loginPassword" required class="w-full rounded-xl border border-borderSoft bg-[#17223A] p-3 text-sm pr-10 focus:outline-none focus:ring-1 focus:ring-accent" placeholder="••••••••">
+          <button type="button" onclick="togglePassword('loginPassword', this)" class="absolute right-3 top-1/2 -translate-y-1/2 text-textSoft hover:text-accent transition">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+              <circle cx="12" cy="12" r="3"></circle>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <button type="submit" data-i18n="btnLogin" class="mt-4 w-full rounded-xl bg-accent py-3 text-sm font-bold text-[#2E1E00] transition hover:brightness-105">Přihlásit se</button>
+      <p id="loginError" class="mt-2 hidden text-center text-sm text-red-500"></p>
+    </form>
+
+    <form id="registerForm" class="hidden space-y-4">
+      <div class="space-y-2">
+        <label data-i18n="nameLabel" class="text-xs font-semibold uppercase text-textSoft">Jméno</label>
+        <input type="text" id="registerName" required class="w-full rounded-xl border border-borderSoft bg-[#17223A] p-3 text-sm focus:outline-none focus:ring-1 focus:ring-accent" placeholder="Např. Tomáš" data-i18n-placeholder="namePlaceholder">
+      </div>
+      
+      <div class="space-y-2">
+        <label data-i18n="emailLabel" class="text-xs font-semibold uppercase text-textSoft">E-mail</label>
+        <input type="email" id="registerEmail" required class="w-full rounded-xl border border-borderSoft bg-[#17223A] p-3 text-sm focus:outline-none focus:ring-1 focus:ring-accent" placeholder="tvuj@email.cz" data-i18n-placeholder="emailPlaceholder">
+      </div>
+      
+      <div class="space-y-2">
+        <label data-i18n="createPasswordLabel" class="text-xs font-semibold uppercase text-textSoft">Vytvořit heslo</label>
+        <div class="relative">
+          <input type="password" id="registerPassword" required class="w-full rounded-xl border border-borderSoft bg-[#17223A] p-3 text-sm pr-10 focus:outline-none focus:ring-1 focus:ring-accent" placeholder="Min. 6 znaků" data-i18n-placeholder="passwordPlaceholder">
+          <button type="button" onclick="togglePassword('registerPassword', this)" class="absolute right-3 top-1/2 -translate-y-1/2 text-textSoft hover:text-accent transition">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+              <circle cx="12" cy="12" r="3"></circle>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <button type="submit" data-i18n="btnRegister" class="mt-4 w-full rounded-xl bg-white py-3 text-sm font-bold text-[#060913] transition hover:bg-gray-200">Vytvořit účet</button>
+      <p id="registerError" class="mt-2 hidden text-center text-sm text-red-500"></p>
+    </form>
+
+    <form id="forgotForm" class="hidden space-y-4">
+      <p data-i18n="forgotText" class="text-sm text-textSoft mb-4">Zadejte svůj e-mail a my vám zašleme odkaz pro obnovení hesla.</p>
+      <div class="space-y-2">
+        <label data-i18n="emailLabel" class="text-xs font-semibold uppercase text-textSoft">E-mail</label>
+        <input type="email" id="forgotEmail" required class="w-full rounded-xl border border-borderSoft bg-[#17223A] p-3 text-sm focus:outline-none focus:ring-1 focus:ring-accent" placeholder="tvuj@email.cz" data-i18n-placeholder="emailPlaceholder">
+      </div>
+      <button type="submit" data-i18n="btnReset" class="mt-4 w-full rounded-xl bg-accent py-3 text-sm font-bold text-[#2E1E00] transition hover:brightness-105">Odeslat odkaz</button>
+      <button type="button" onclick="switchMode('login')" data-i18n="btnBackToLogin" class="mt-2 w-full text-sm text-textSoft hover:text-white transition">Zpět na přihlášení</button>
+      <p id="forgotMessage" class="mt-2 hidden text-center text-sm"></p>
+    </form>
+
+  </div>
+
+  <script>
+    let currentLang = 'cs';
+
+    // --- LOKALIZACE (PŘEKLADY) ---
+    const translations = {
+      cs: {
+        welcome: "Vítejte zpět",
+        subtitle: "Přihlaste se do svého studia PlumaScript",
+        tabLogin: "Přihlášení",
+        tabRegister: "Nová registrace",
+        emailLabel: "E-mail",
+        passwordLabel: "Heslo",
+        forgotPassword: "Zapomenuté heslo?",
+        btnLogin: "Přihlásit se",
+        nameLabel: "Jméno",
+        createPasswordLabel: "Vytvořit heslo",
+        btnRegister: "Vytvořit účet",
+        emailPlaceholder: "tvuj@email.cz",
+        namePlaceholder: "Např. Tomáš",
+        passwordPlaceholder: "Min. 6 znaků",
+        forgotText: "Zadejte svůj e-mail a my vám zašleme odkaz pro obnovení hesla.",
+        btnReset: "Odeslat odkaz",
+        btnBackToLogin: "Zpět na přihlášení",
+        resetSuccess: "Odkaz odeslán! Zkontrolujte svůj e-mail.",
+        resetError: "Účet nenalezen nebo nastala chyba."
+      },
+      en: {
+        welcome: "Welcome back",
+        subtitle: "Log in to your PlumaScript studio",
+        tabLogin: "Login",
+        tabRegister: "New Registration",
+        emailLabel: "Email",
+        passwordLabel: "Password",
+        forgotPassword: "Forgot password?",
+        btnLogin: "Log In",
+        nameLabel: "First Name",
+        createPasswordLabel: "Create Password",
+        btnRegister: "Create Account",
+        emailPlaceholder: "your@email.com",
+        namePlaceholder: "e.g. Thomas",
+        passwordPlaceholder: "Min. 6 characters",
+        forgotText: "Enter your email and we will send you a password reset link.",
+        btnReset: "Send Link",
+        btnBackToLogin: "Back to Login",
+        resetSuccess: "Link sent! Please check your email.",
+        resetError: "Account not found or an error occurred."
+      }
+    };
+
+    function setLanguage(lang) {
+      currentLang = lang;
+      // Změna vizuálu tlačítek
+      document.getElementById("langCs").className = lang === 'cs' ? "rounded-md bg-panelSoft px-2 py-1 text-xs font-bold text-white transition" : "rounded-md px-2 py-1 text-xs font-bold text-textSoft transition hover:text-white";
+      document.getElementById("langEn").className = lang === 'en' ? "rounded-md bg-panelSoft px-2 py-1 text-xs font-bold text-white transition" : "rounded-md px-2 py-1 text-xs font-bold text-textSoft transition hover:text-white";
+
+      // Překlad textů
+      document.querySelectorAll("[data-i18n]").forEach(el => {
+        const key = el.getAttribute("data-i18n");
+        if (translations[lang][key]) {
+          el.innerText = translations[lang][key];
+        }
+      });
+
+      // Překlad placeholderů
+      document.querySelectorAll("[data-i18n-placeholder]").forEach(el => {
+        const key = el.getAttribute("data-i18n-placeholder");
+        if (translations[lang][key]) {
+          el.setAttribute("placeholder", translations[lang][key]);
+        }
+      });
+    }
+
+    // Výchozí jazyk při načtení
+    setLanguage('cs');
+
+    // --- LOGIKA PŘEPÍNÁNÍ FORMULÁŘŮ ---
+    function switchMode(mode) {
+      const loginForm = document.getElementById('loginForm');
+      const registerForm = document.getElementById('registerForm');
+      const forgotForm = document.getElementById('forgotForm');
+      const tabsContainer = document.getElementById('tabsContainer');
+      const tabLogin = document.getElementById('tabLogin');
+      const tabRegister = document.getElementById('tabRegister');
+
+      // Reset viditelnosti
+      loginForm.classList.add('hidden');
+      registerForm.classList.add('hidden');
+      forgotForm.classList.add('hidden');
+      tabsContainer.classList.remove('hidden');
+
+      if (mode === 'login') {
+        loginForm.classList.remove('hidden');
+        tabLogin.className = "flex-1 rounded-md bg-panelSoft py-2 text-sm font-bold text-white transition";
+        tabRegister.className = "flex-1 rounded-md py-2 text-sm font-bold text-textSoft transition hover:text-white";
+      } else if (mode === 'register') {
+        registerForm.classList.remove('hidden');
+        tabRegister.className = "flex-1 rounded-md bg-panelSoft py-2 text-sm font-bold text-white transition";
+        tabLogin.className = "flex-1 rounded-md py-2 text-sm font-bold text-textSoft transition hover:text-white";
+      } else if (mode === 'forgot') {
+        forgotForm.classList.remove('hidden');
+        tabsContainer.classList.add('hidden'); // Skryje záložky při obnově hesla
+      }
+    }
+
+    // --- LOGIKA HESLA ---
+    function togglePassword(inputId, btnEl) {
+      const input = document.getElementById(inputId);
+      if (input.type === "password") {
+        input.type = "text";
+        btnEl.classList.add("text-white");
+      } else {
+        input.type = "password";
+        btnEl.classList.remove("text-white");
+      }
+    }
+  </script>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+    // PŘIDÁNO: Importy pro práci s Firestore databází
+    import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCnWQvt7pnZ-Ta9zuM7PJaVWzBtn4xJNKU",
+      authDomain: "plumascript-4a494.firebaseapp.com",
+      projectId: "plumascript-4a494",
+      storageBucket: "plumascript-4a494.firebasestorage.app",
+      messagingSenderId: "679308972322",
+      appId: "1:679308972322:web:89ad6d8f9814e18579157b"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app); // PŘIDÁNO: Inicializace databáze
+
+    // Přihlášení
+    document.getElementById("loginForm").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const email = document.getElementById("loginEmail").value;
+      const pass = document.getElementById("loginPassword").value;
+      const errorMsg = document.getElementById("loginError");
+
+      signInWithEmailAndPassword(auth, email, pass)
+        .then(() => window.location.href = "index.html")
+        .catch(() => {
+          errorMsg.classList.remove("hidden");
+          errorMsg.textContent = currentLang === 'cs' ? "Chyba přihlášení. Zkontrolujte údaje." : "Login failed. Check your credentials.";
+        });
+    });
+
+    // Registrace (UPRAVENO: přidání 10 kreditů)
+    document.getElementById("registerForm").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const name = document.getElementById("registerName").value;
+      const email = document.getElementById("registerEmail").value;
+      const pass = document.getElementById("registerPassword").value;
+      const errorMsg = document.getElementById("registerError");
+
+      createUserWithEmailAndPassword(auth, email, pass)
+        .then(async (userCredential) => {
+          // 1. Uložíme jméno uživatele do Firebase Auth
+          await updateProfile(userCredential.user, { displayName: name });
+          
+          // 2. Vytvoříme profil v databázi (uložíme 10 kreditů a výchozí stav "isPro: false")
+            await setDoc(doc(db, "users", userCredential.user.uid), {
+            email: email,
+            name: name,
+            credits: 10,
+            plan: "free",    // Přepsáno z isPro: false
+            isAdmin: false,  // Přidána tato nutná pojistka!
+            createdAt: new Date()
+          });
+
+          // 3. Jakmile je vše bezpečně uloženo, přesměrujeme do aplikace
+          window.location.href = "index.html";
+        })
+        .catch((error) => {
+          errorMsg.classList.remove("hidden");
+          errorMsg.textContent = (currentLang === 'cs' ? "Chyba registrace: " : "Registration error: ") + error.message;
+        });
+    });
+
+    // Obnova hesla
+    document.getElementById("forgotForm").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const email = document.getElementById("forgotEmail").value;
+      const msgEl = document.getElementById("forgotMessage");
+
+      sendPasswordResetEmail(auth, email)
+        .then(() => {
+          msgEl.classList.remove("hidden", "text-red-500");
+          msgEl.classList.add("text-green-500");
+          msgEl.textContent = translations[currentLang].resetSuccess;
+        })
+        .catch(() => {
+          msgEl.classList.remove("hidden", "text-green-500");
+          msgEl.classList.add("text-red-500");
+          msgEl.textContent = translations[currentLang].resetError;
+        });
+    });
+  </script>
+</body>
+</html>

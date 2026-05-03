@@ -1,0 +1,1014 @@
+<!doctype html>
+<html lang="cs">
+  <head>
+    <script src="https://js.stripe.com/v3/"></script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PlumaScript - Studio</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      async function loadMyScripts() {
+    if (!window.currentUserUid) return;
+    
+    const container = document.getElementById("projectsContainer");
+    if (!container) return;
+
+    try {
+        const q = window.fbQuery(
+            window.fbCollection(window.db, "scripts"), 
+            window.fbWhere("userId", "==", window.currentUserUid)
+        );
+        
+        const querySnapshot = await window.fbGetDocs(q);
+        const scriptsArray = [];
+        
+        querySnapshot.forEach((doc) => {
+            const data = doc.data();
+            scriptsArray.push({ id: doc.id, ...data });
+        });
+
+        // Bezpečné seřazení (pokud datum chybí, dá ho na konec)
+        scriptsArray.sort((a, b) => {
+            const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : 0;
+            const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : 0;
+            return dateB - dateA;
+        });
+
+        container.innerHTML = ""; 
+
+        if (scriptsArray.length === 0) {
+            container.innerHTML = `<p class="text-textSoft text-center py-8">${currentLang === 'cs' ? 'Zatím žádné projekty.' : 'No projects yet.'}</p>`;
+            return;
+        }
+
+        scriptsArray.forEach((data) => {
+            const dateStr = data.createdAt?.toDate ? data.createdAt.toDate().toLocaleDateString() : "";
+            const card = document.createElement("div");
+            card.className = "p-5 bg-panelSoft rounded-2xl border border-borderSoft hover:border-accent transition-all cursor-pointer group";
+            card.innerHTML = `
+                <div class="flex justify-between items-start mb-3">
+                    <span class="px-2 py-1 bg-accent/10 text-accent text-[10px] font-bold rounded uppercase">${data.platform}</span>
+                    <span class="text-[10px] text-textSoft">${dateStr}</span>
+                </div>
+                <h3 class="text-white font-bold group-hover:text-accent transition-colors truncate mb-2">${data.topic}</h3>
+                <p class="text-textSoft text-xs line-clamp-2">${data.content.replace(/<[^>]*>/g, '').substring(0, 100)}...</p>
+            `;
+            
+            card.onclick = () => {
+                switchTab('generator');
+                document.getElementById("aiResultBox").classList.remove("hidden");
+                document.getElementById("aiResultText").innerHTML = formatAIResponse(data.content);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            };
+            container.appendChild(card);
+        });
+    } catch (e) {
+        console.error("Chyba loadMyScripts:", e);
+    }
+}
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              appBg: "#060913",
+              panel: "#0D1322",
+              panelSoft: "#121A2D",
+              borderSoft: "#1A2741",
+              textSoft: "#8FA0BF",
+              accent: "#F2B24D",
+              accentDark: "#D59A40"
+            }
+          }
+        }
+      };
+    </script>
+    <style>
+      body {
+        background: radial-gradient(circle at 20% -20%, #1d2d50 0%, #060913 42%), #060913;
+      }
+      select {
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%238FA0BF'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 1rem center;
+        background-size: 1.2em;
+      }
+    </style>
+  </head>
+  <body class="min-h-screen bg-appBg text-white antialiased">
+    <div class="mx-auto flex flex-col lg:flex-row min-h-screen max-w-[1320px] gap-5 p-4">
+      
+      <aside class="flex w-full lg:w-[250px] shrink-0 flex-col rounded-2xl border border-borderSoft bg-panel p-4">
+        <div class="mb-7 flex items-center gap-3">
+          <div class="grid h-9 w-9 place-items-center rounded-lg bg-accent/15 text-accent">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M5 3h14v6a7 7 0 0 1-14 0V3z"></path>
+              <path d="M8 21h8"></path>
+              <path d="M12 17v4"></path>
+            </svg>
+          </div>
+          <h1 class="text-2xl font-bold">PlumaScript</h1>
+        </div>
+
+        <p class="mb-2 px-2 text-xs font-semibold uppercase tracking-widest text-textSoft" data-i18n="nav">Navigace</p>
+        <nav class="space-y-1 text-sm">
+          <button data-page="dashboard" class="menu-btn w-full rounded-lg px-3 py-2 text-left transition hover:bg-panelSoft bg-panelSoft font-semibold text-white ring-1 ring-borderSoft" data-i18n="menuDash">Nástěnka</button>
+          <button data-page="generator" class="menu-btn w-full rounded-lg px-3 py-2 text-left text-textSoft transition hover:bg-panelSoft hover:text-white" data-i18n="menuGen">Generátor</button>
+          <button data-page="projects" class="menu-btn w-full rounded-lg px-3 py-2 text-left text-textSoft transition hover:bg-panelSoft hover:text-white" data-i18n="menuProj">Projekty</button>
+          <button data-page="pricing" class="menu-btn w-full rounded-lg px-3 py-2 text-left text-textSoft transition hover:bg-panelSoft hover:text-white" data-i18n="menuPlans">Plány</button>
+          <button data-page="settings" class="menu-btn w-full rounded-lg px-3 py-2 text-left text-textSoft transition hover:bg-panelSoft hover:text-white" data-i18n="menuSet">Nastavení</button>
+        </nav>
+
+        <div class="mt-5 rounded-xl border border-borderSoft bg-panelSoft p-4">
+          <p class="text-sm font-semibold" data-i18n="gens">Generace</p>
+          <div class="mt-2 flex items-end gap-2">
+            <span id="sidebarGens" class="text-3xl font-bold text-accent">0</span>
+            <span class="mb-1 text-textSoft">/<span id="sidebarMaxGens">0</span></span>
+          </div>
+          <div class="mt-3 h-2 rounded-full bg-[#1B243B]">
+            <div id="sidebarProgressBar" class="h-full w-[0%] rounded-full bg-gradient-to-r from-accentDark to-accent"></div>
+          </div>
+          <button onclick="switchTab('pricing')" class="mt-3 w-full rounded-md bg-[#1B243B] px-3 py-1.5 text-sm text-accent transition hover:bg-[#273252]" data-i18n="upgradeBtn">Vylepšit plán</button>
+        </div>
+
+        <div class="mt-auto flex items-center justify-between rounded-xl border border-borderSoft bg-panelSoft px-3 py-2.5">
+          <div class="flex items-center gap-2.5">
+            <div class="h-9 w-9 rounded-full bg-gradient-to-br from-slate-300 to-slate-600"></div>
+            <div class="truncate w-20">
+              <p id="sidebarName" class="text-sm font-semibold truncate">Načítání...</p>
+              <p class="text-xs text-textSoft">Creator</p>
+            </div>
+          </div>
+          <div class="flex items-center rounded-lg bg-[#1B243B] p-1">
+            <button id="langCs" class="rounded-md bg-white px-2 py-1 text-xs font-bold text-slate-900 transition">CZ</button>
+            <button id="langEn" class="rounded-md px-2 py-1 text-xs font-bold text-slate-400 transition hover:text-white">EN</button>
+          </div>
+        </div>
+      </aside>
+
+      <main class="flex-1 rounded-2xl border border-borderSoft bg-panel p-6 overflow-y-auto">
+        <header class="mb-6 flex items-center justify-between gap-3">
+          <div>
+            <p class="text-sm text-textSoft" data-i18n="workspace">Pracovní plocha</p>
+            <h2 id="pageTitle" class="text-4xl font-bold leading-tight">Nástěnka</h2>
+          </div>
+          <div class="flex items-center gap-4">
+            <button id="authActionButton" class="text-sm font-semibold text-textSoft transition hover:text-white" data-i18n="loginBtn">Přihlásit se</button>
+            <button onclick="switchTab('generator')" class="rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-[#2E1E00] transition hover:brightness-105" data-i18n="newScript">+ Nový scénář</button>
+          </div>
+        </header>
+
+        <div id="pages" class="relative">
+          
+          <section data-page-content="dashboard" class="page transition-all duration-300">
+            <div class="rounded-2xl border border-accent/70 bg-panelSoft p-7">
+              <h3 id="dashGreeting" class="text-4xl font-bold leading-tight text-accent">Co dnes vytvoříme?</h3>
+              <p class="mt-3 max-w-2xl text-lg text-textSoft" data-i18n="dashSub">Rychlý přehled tvého studia a dostupných generací.</p>
+            </div>
+            <div class="mt-6 grid gap-4 md:grid-cols-3">
+              <article class="rounded-2xl border border-borderSoft bg-panelSoft p-5">
+                <p class="text-sm text-textSoft" data-i18n="stat1">Celkem scénářů</p>
+                <p id="dashTotalScripts" class="mt-2 text-4xl font-bold">0</p>
+              </article>
+              <article class="rounded-2xl border border-borderSoft bg-panelSoft p-5">
+                <p class="text-sm text-textSoft" data-i18n="stat2">Zbývající generace</p>
+                <p id="dashRemainingGens" class="mt-2 text-4xl font-bold text-accent">0</p>
+              </article>
+              <article class="rounded-2xl border border-borderSoft bg-panelSoft p-5">
+                <p class="text-sm text-textSoft" data-i18n="stat3">Aktivní projekty</p>
+                <p id="dashActiveProjects" class="mt-2 text-4xl font-bold">0</p>
+              </article>
+            </div>
+          </section>
+
+          <section data-page-content="generator" class="page hidden transition-all duration-300">
+            <div class="rounded-2xl border border-borderSoft bg-panelSoft p-7">
+              <h3 class="text-3xl font-semibold mb-6" data-i18n="genTitle">Nový scénář</h3>
+              
+              <div class="space-y-4">
+                <div class="space-y-2">
+                  <label class="text-xs font-semibold uppercase text-textSoft" data-i18n="labelTopic">Téma scénáře</label>
+                  <input type="text" id="aiTopic" class="w-full rounded-xl border border-borderSoft bg-[#17223A] p-3 text-sm focus:outline-none focus:ring-1 focus:ring-accent placeholder:text-textSoft/50" data-i18n-placeholder="topicPlaceholder" placeholder="Např.: 3 nejčastější chyby při růstu na TikToku...">
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div class="space-y-2">
+                    <label class="text-xs font-semibold uppercase text-textSoft" data-i18n="labelPlatform">Platforma</label>
+                    <select id="aiPlatform" class="w-full rounded-xl border border-borderSoft bg-[#17223A] p-3 text-sm focus:outline-none focus:ring-1 focus:ring-accent text-white appearance-none">
+                      <option value="tiktok">TikTok</option>
+                      <option value="reels">IG Reels</option>
+                      <option value="shorts">YT Shorts</option>
+                    </select>
+                  </div>
+
+                  <div class="space-y-2">
+                    <label class="text-xs font-semibold uppercase text-textSoft" data-i18n="labelTone">Tón</label>
+                    <select id="aiTone" class="w-full rounded-xl border border-borderSoft bg-[#17223A] p-3 text-sm focus:outline-none focus:ring-1 focus:ring-accent text-white appearance-none">
+                      <option value="profesionalni" data-i18n="t1">Profesionální</option>
+                      <option value="neformalni" data-i18n="t2">Neformální</option>
+                      <option value="vtipny" data-i18n="t3">Vtipný</option>
+                      <option value="agresivni">Agresivní (Hormozi style)</option>
+                    </select>
+                  </div>
+
+                  <div class="space-y-2">
+                    <label class="text-xs font-semibold uppercase text-textSoft" data-i18n="labelLen">Délka</label>
+                    <select id="aiLength" class="w-full rounded-xl border border-borderSoft bg-[#17223A] p-3 text-sm focus:outline-none focus:ring-1 focus:ring-accent text-white appearance-none">
+                      <option value="15s" data-i18n="l1">15-30 sekund</option>
+                      <option value="40s" data-i18n="l2" selected>30-60 sekund</option>
+                      <option value="60s" data-i18n="l3">1-2 minuty</option>
+                    </select>
+                  </div>
+
+                  <div class="space-y-2">
+                    <label class="text-xs font-semibold uppercase text-textSoft" data-i18n="labelPurpose">Účel</label>
+                    <input type="text" id="aiPurpose" class="w-full rounded-xl border border-borderSoft bg-[#17223A] p-3 text-sm focus:outline-none focus:ring-1 focus:ring-accent placeholder:text-textSoft/50" data-i18n-placeholder="purposePlaceholder" placeholder="Např.: Získat důvěru, Prodej...">
+                  </div>
+                </div>
+              </div>
+
+              <button id="btnGenerate" class="mt-6 w-full rounded-xl bg-accent py-4 font-bold text-[#2E1E00] transition hover:brightness-105" data-i18n="genBtn">Vygenerovat scénář</button>
+              <div id="aiResultBox" class="mt-8 rounded-2xl border border-borderSoft bg-panel p-6 shadow-xl overflow-hidden relative">
+                <div class="absolute top-4 right-6 opacity-10 pointer-events-none">
+                    <span class="text-2xl font-bold tracking-tighter text-white">PLUMA<span class="text-accent">SCRIPT</span></span>
+                </div>
+            
+                <div class="flex items-center justify-between mb-4 border-b border-borderSoft pb-4">
+                    <h3 class="text-lg font-semibold text-white flex items-center gap-2" data-i18n="resultTitle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                        </svg>
+                        Váš vygenerovaný scénář
+                    </h3>
+                    <button id="btnCopy" class="flex items-center gap-2 rounded-lg bg-panelSoft px-3 py-1.5 text-xs font-medium text-textSoft transition hover:bg-borderSoft hover:text-white" data-i18n="copyBtn">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                        </svg>
+                        Kopírovat
+                    </button>
+                </div>
+            
+                <div class="relative w-full min-h-[300px]">
+                  <div id="aiLoading" class="hidden absolute inset-0 flex flex-col items-center justify-center bg-panel/80 z-10 backdrop-blur-sm rounded-lg">
+                      <div class="text-5xl mb-4">🤖</div>
+                      <div class="flex space-x-2">
+                          <div class="w-3 h-3 bg-accent rounded-full animate-bounce" style="animation-delay: -0.3s"></div>
+                          <div class="w-3 h-3 bg-accent rounded-full animate-bounce" style="animation-delay: -0.15s"></div>
+                          <div class="w-3 h-3 bg-accent rounded-full animate-bounce"></div>
+                      </div>
+                      <p class="text-accent mt-4 text-sm font-bold uppercase tracking-widest" data-i18n="aiThinking">PlumaScript přemýšlí...</p>
+                  </div>
+              
+                  <div id="aiResultText" class="w-full h-full bg-transparent text-textSoft leading-relaxed text-sm overflow-y-auto" style="white-space: pre-wrap;">
+                      Zde se objeví váš scénář po kliknutí na tlačítko generovat...
+                  </div>
+              </div>
+            </div>
+            </div>
+          </section>
+
+          <section data-page-content="projects" class="page hidden">
+            <div class="rounded-2xl border border-borderSoft bg-panelSoft p-7">
+              <div class="flex items-center justify-between">
+                <h3 class="text-3xl font-semibold" data-i18n="projTitle">Moje Projekty</h3>
+                <button id="btnNewProject" class="rounded-xl bg-[#1B243B] px-4 py-2 text-sm font-semibold text-white transition hover:bg-borderSoft" data-i18n="newProjectBtn">+ Nový projekt</button>
+              </div>
+              <div id="projectsContainer" class="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              </div>
+            </div>
+          </section>
+
+          <section data-page-content="project-detail" class="page hidden">
+            <div class="rounded-2xl border border-borderSoft bg-panelSoft p-7">
+              <button onclick="switchTab('projects')" class="mb-4 text-sm font-semibold text-accent hover:underline" data-i18n="btnBack">← Zpět na projekty</button>
+              <h3 id="detailProjName" class="text-3xl font-bold mb-1">Název projektu</h3>
+              <p class="text-sm text-textSoft mb-8"><span id="detailProjCount">0</span> <span data-i18n="scriptsCount">scénářů</span></p>
+              
+              <div class="flex flex-col items-center justify-center rounded-xl border border-dashed border-borderSoft bg-[#17223A]/50 py-16">
+                <div class="mb-3 h-12 w-12 rounded-full bg-accent/10 flex items-center justify-center text-accent">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                </div>
+                <p class="text-textSoft font-medium" data-i18n="noScriptsYet">Zatím zde nejsou žádné vygenerované scénáře.</p>
+              </div>
+            </div>
+          </section>
+
+          <section data-page-content="pricing" class="page hidden">
+            <div class="grid gap-6 md:grid-cols-3">
+              <div class="flex flex-col rounded-2xl border border-borderSoft bg-panelSoft p-6">
+                <h4 class="text-xl font-bold">Free</h4>
+                <p class="mt-2 text-3xl font-black"><span data-i18n="priceFree">0 Kč</span> <span class="text-sm font-normal text-textSoft" data-i18n="month">/ měsíc</span></p>
+                <ul class="mt-6 flex-1 space-y-3 text-sm text-textSoft">
+                  <li data-i18n="p1_1">✓ 10 generací měsíčně</li>
+                  <li data-i18n="p1_2">✓ Základní AI model</li>
+                  <li data-i18n="p1_3">✓ Ideální pro začínající tvůrce</li>
+                </ul>
+                <button class="mt-8 w-full rounded-xl border border-borderSoft py-3 text-sm font-bold opacity-50 cursor-not-allowed" data-i18n="currentPlan">Váš plán</button>
+              </div>
+              <div class="relative flex flex-col rounded-2xl border-2 border-accent bg-panelSoft p-6 shadow-lg shadow-accent/5">
+                <span class="absolute -top-3 right-6 rounded-full bg-accent px-3 py-1 text-xs font-black text-[#2E1E00]" data-i18n="popular">POPULÁRNÍ</span>
+                <h4 class="text-xl font-bold text-accent">Basic</h4>
+                <p class="mt-2 text-3xl font-black"><span data-i18n="priceBasic">90 Kč</span> <span class="text-sm font-normal text-textSoft" data-i18n="month">/ měsíc</span></p>
+                <ul class="mt-6 flex-1 space-y-3 text-sm text-textSoft">
+                  <li data-i18n="p2_1">✓ 50 generací měsíčně</li>
+                  <li data-i18n="p2_2">✓ Emailová podpora</li>
+                  <li data-i18n="p2_3">✓ Organizace do složek</li>
+                  <li data-i18n="p2_4">✓ Ideální pro začínající podnikatele</li>
+                </ul>
+                <button id="btnUpgradeBasic" class="mt-8 w-full rounded-xl bg-accent py-3 text-sm font-bold text-[#2E1E00] hover:brightness-110" data-i18n="upgradeBasic">Přejít na Basic</button>
+              </div>
+              <div class="flex flex-col rounded-2xl border border-borderSoft bg-panelSoft p-6">
+                <h4 class="text-xl font-bold">Pro</h4>
+                <p class="mt-2 text-3xl font-black"><span data-i18n="pricePro">190 Kč</span> <span class="text-sm font-normal text-textSoft" data-i18n="month">/ měsíc</span></p>
+                <ul class="mt-6 flex-1 space-y-3 text-sm text-textSoft">
+                  <li data-i18n="p3_1">✓ 500 generací měsíčně</li>
+                  <li data-i18n="p3_2">✓ Ideální pro Marketingové Agentury</li>
+                  <li data-i18n="p3_3">✓ Přizpůsobení scénáře podle vašich potřeb</li>
+                  <li data-i18n="p3_4">✓ Podpora 24/7</li>
+                </ul>
+                <button id="btnUpgradePro" class="mt-8 w-full rounded-xl bg-white/10 py-3 text-sm font-bold hover:bg-white/20" data-i18n="upgradePro">Přejít na Pro</button>
+              </div>
+            </div>
+          </section>
+
+          <section data-page-content="settings" class="page hidden">
+            <div class="rounded-2xl border border-borderSoft bg-panelSoft p-7">
+              <h4 class="text-lg font-bold mb-4" data-i18n="setAccInfo">Informace o účtu</h4>
+              <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mb-8">
+                <div class="rounded-xl border border-borderSoft bg-[#17223A] p-4">
+                  <p class="text-xs uppercase text-textSoft mb-1" data-i18n="accName">Jméno</p>
+                  <p id="setAccName" class="font-semibold">Nenastaveno</p>
+                </div>
+                <div class="rounded-xl border border-borderSoft bg-[#17223A] p-4">
+                  <p class="text-xs uppercase text-textSoft mb-1" data-i18n="accEmail">E-mail</p>
+                  <p id="setAccEmail" class="font-semibold">Nenastaveno</p>
+                </div>
+                <div class="rounded-xl border border-borderSoft bg-[#17223A] p-4">
+                  <p class="text-xs uppercase text-textSoft mb-1" data-i18n="accPlan">Aktuální plán</p>
+                  <p id="setAccPlan" class="font-semibold text-accent">Nenastaveno</p>
+                </div>
+              </div>
+
+              <h4 class="text-lg font-bold mb-4 mt-8" data-i18n="setSecurity">Zabezpečení</h4>
+              <div class="flex items-center justify-between rounded-xl border border-borderSoft bg-[#17223A] p-4">
+                <div>
+                  <p class="font-semibold" data-i18n="passLabel">Heslo</p>
+                  <p class="text-sm text-textSoft">********</p>
+                </div>
+                <button id="btnChangePass" class="text-sm font-bold text-accent" data-i18n="changePass">Změnit heslo</button>
+              </div>
+
+              <div class="mt-20">
+                <h4 class="text-lg font-bold text-red-500 mb-4" data-i18n="dangerZone">Nebezpečná zóna</h4>
+                <div class="flex items-center justify-between rounded-xl border border-red-900/30 bg-red-900/10 p-4">
+                  <div>
+                    <p class="font-semibold text-red-400" data-i18n="deleteLabel">Smazat účet</p>
+                    <p class="text-sm text-red-400/60" data-i18n="deleteSub">Tato akce je nevratná a smaže všechna data.</p>
+                  </div>
+                  <button id="btnDeleteAcc" class="rounded-lg bg-red-500/10 px-4 py-2 text-sm font-bold text-red-500 transition hover:bg-red-500/20" data-i18n="deleteBtn">Smazat účet</button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+        </div>
+      </main>
+    </div>
+
+    <script>
+      // Naše lokální projekty a data - iniciováno prázdně pro načtení z localStorage
+      let myProjects = [];
+      const userData = {
+        name: "Uživatel",
+        email: "Nenastaveno",
+        planName: "Free",
+        totalScripts: 0,
+        remainingGens: 10,
+        maxGens: 10,
+        activeProjects: 0
+      };
+
+      const dict = {
+        cs: {
+          nav: "Navigace", menuDash: "Nástěnka", menuGen: "Generátor", menuProj: "Projekty", menuPlans: "Plány", menuSet: "Nastavení",
+          gens: "Generace", upgradeBtn: "Vylepšit plán", workspace: "Pracovní plocha", loginBtn: "Přihlásit se", newScript: "+ Nový scénář",
+          dashSub: "Rychlý přehled tvého studia a dostupných generací.", stat1: "Celkem scénářů", stat2: "Zbývající generace", stat3: "Aktivní projekty",
+          genTitle: "Nový scénář", labelPlatform: "Platforma", labelTone: "Tón", labelLen: "Délka", labelTopic: "Téma scénáře", labelPurpose: "Účel",
+          t1: "Profesionální", t2: "Neformální (doporučeno)", t3: "Vtipný", t4: "Inspirativní", t5: "Vzdělávací",
+          l1: "15-30 sekund", l2: "30-60 sekund", l3: "1-2 minuty (doporučeno)", l4: "Více než 2 minuty",
+          topicPlaceholder: "O čem by video mělo být?", purposePlaceholder: "Např.: Získat důvěru, Prodej...", genBtn: "Vygenerovat scénář",
+          projTitle: "Moje Projekty", newProjectBtn: "+ Nový projekt",
+          month: "/ měsíc", priceFree: "0 Kč", priceBasic: "90 Kč", pricePro: "190 Kč", currentPlan: "Váš plán", popular: "POPULÁRNÍ", upgradeBasic: "Přejít na Basic", upgradePro: "Přejít na Pro",
+          p1_1: "✓ 10 generací měsíčně", p1_2: "✓ Základní AI model", p1_3: "✓ Ideální pro začínající tvůrce",
+          p2_1: "✓ 50 generací měsíčně", p2_2: "✓ Ideální pro začínající podnikatele", p2_3: "✓ Organizace do složek", p2_4: "✓ Emailová podpora",
+          p3_1: "✓ 500 generací měsíčně", p3_2: "✓ Ideální pro Marketingové Agentury", p3_3: "✓ Přizpůsobení scénáře podle vašich potřeb", p3_4: "✓ Podpora 24/7",
+          setAccInfo: "Informace o účtu", accName: "Jméno", accEmail: "E-mail", accPlan: "Aktuální plán",
+          setSecurity: "Zabezpečení", passLabel: "Heslo", changePass: "Změnit heslo", 
+          dangerZone: "Nebezpečná zóna", deleteLabel: "Smazat účet", deleteSub: "Tato akce je nevratná a smaže všechna data.", deleteBtn: "Smazat účet",
+          tabDash: "Nástěnka", tabGen: "Generátor", tabProj: "Projekty", tabPlans: "Plány", tabSet: "Nastavení", logoutBtn: "Odhlásit",
+          promptNewProj: "Zadejte název nového projektu:",
+          alertProjCreated: "Projekt vytvořen: ",
+          confirmDelProj: "Opravdu chcete smazat tento projekt?",
+          btnDelProj: "Smazat",
+          scriptsCount: "scénářů",
+          alertPassReset: "Na váš e-mail byl odeslán odkaz pro změnu hesla.",
+          confirmDelAcc: "Tato akce je nevratná. Opravdu chcete smazat účet?",
+          alertAccDel: "Váš účet byl úspěšně smazán.",
+          alertReauth: "Z bezpečnostních důvodů se prosím odhlaste a znovu přihlaste před smazáním účtu.",
+          alertGenSuccess: "Simulace: Scénář vygenerován! 1 generace byla odečtena.",
+          alertNoCredits: "Nemáte dostatek kreditů. Přejděte prosím na vyšší plán.",
+          defaultProjName: "Kampaň Jaro",
+          btnBack: "← Zpět na projekty",
+          noScriptsYet: "Zatím zde nejsou žádné vygenerované scénáře.",
+          resultTitle: "Váš vygenerovaný scénář!:",
+          copyBtn: "Kopírovat",
+          generatingText: "Generuji...",
+          aiThinking: "PlumaScript přemýšlí...",
+          
+        },
+        en: {
+          nav: "Navigation", menuDash: "Dashboard", menuGen: "Generator", menuProj: "Projects", menuPlans: "Pricing", menuSet: "Settings",
+          gens: "Generations", upgradeBtn: "Upgrade Plan", workspace: "Workspace", loginBtn: "Login", newScript: "+ New Script",
+          dashSub: "Quick overview of your studio and available generations.", stat1: "Total scripts", stat2: "Remaining credits", stat3: "Active projects",
+          genTitle: "New Script", labelPlatform: "Platform", labelTone: "Tone", labelLen: "Length", labelTopic: "Script Topic", labelPurpose: "Purpose",
+          t1: "Professional", t2: "Casual (recommended)", t3: "Funny", t4: "Inspiring", t5: "Educational",
+          l1: "15-30 seconds", l2: "30-60 seconds", l3: "1-2 minutes (recommended)", l4: "More than 2 minutes",
+          topicPlaceholder: "What should the video be about?", purposePlaceholder: "E.g. Gain trust, Sales...", genBtn: "Generate Script",
+          projTitle: "My Projects", newProjectBtn: "+ New project",
+          month: "/ month", priceFree: "€0", priceBasic: "€3.70", pricePro: "€7,80", currentPlan: "Current Plan", popular: "MOST POPULAR", upgradeBasic: "Upgrade to Basic", upgradePro: "Upgrade to Pro",
+          p1_1: "✓ 10 generations per month", p1_2: "✓ Basic AI model", p1_3: "✓ Ideal for beginners",
+          p2_1: "✓ 50 generations per month", p2_2: "✓ Ideal for entrepreneurs", p2_3: "✓ Folder organization", p2_4: "✓ Email support",
+          p3_1: "✓ 500 generations per month", p3_2: "✓ Ideal for marketing agencies", p3_3: "✓ Customization of the script according to your needs", p3_4: "✓ 24/7 Support",
+          setAccInfo: "Account Information", accName: "Name", accEmail: "Email", accPlan: "Current Plan",
+          setSecurity: "Security", passLabel: "Password", changePass: "Change password", 
+          dangerZone: "Danger Zone", deleteLabel: "Delete account", deleteSub: "This action is permanent and deletes all data.", deleteBtn: "Delete Account",
+          tabDash: "Dashboard", tabGen: "Generator", tabProj: "Projects", tabPlans: "Pricing", tabSet: "Settings", logoutBtn: "Logout",
+          promptNewProj: "Enter the name of the new project:",
+          alertProjCreated: "Project created: ",
+          confirmDelProj: "Are you sure you want to delete this project?",
+          btnDelProj: "Delete",
+          scriptsCount: "scripts",
+          alertPassReset: "A password reset link has been sent to your email.",
+          confirmDelAcc: "This action is irreversible. Delete account?",
+          alertAccDel: "Your account has been deleted.",
+          alertReauth: "Please log out and log back in before deleting your account.",
+          alertGenSuccess: "Simulation: Script generated! 1 generation was deducted.",
+          alertNoCredits: "Not enough credits. Please upgrade your plan.",
+          defaultProjName: "Spring Campaign",
+          btnBack: "← Back to projects",
+          noScriptsYet: "No scripts generated here yet.",
+          resultTitle: "Your generated script!:",
+          copyBtn: "Copy",
+          generatingText: "Generating...",
+          aiThinking: "PlumaScript is thinking...",
+        }
+      };
+
+      let currentLang = "cs";
+      let activeTab = "dashboard";
+
+      // Paměť pro data
+      function loadData() {
+        const savedU = localStorage.getItem('plumaUserData');
+        if (savedU) {
+            Object.assign(userData, JSON.parse(savedU));
+        }
+        
+        const savedP = localStorage.getItem('plumaProjects');
+        if (savedP) {
+            myProjects = JSON.parse(savedP);
+        } else {
+            // Výchozí projekt pro nové uživatele
+            myProjects = [{ id: "1", name: "default", count: 4 }];
+        }
+        userData.activeProjects = myProjects.length;
+      }
+
+      function saveData() {
+        userData.activeProjects = myProjects.length;
+        localStorage.setItem('plumaUserData', JSON.stringify(userData));
+        localStorage.setItem('plumaProjects', JSON.stringify(myProjects));
+      }
+
+      function renderProjects() {
+        const container = document.getElementById("projectsContainer");
+        container.innerHTML = "";
+        
+        myProjects.forEach(p => {
+          const displayName = p.name === 'default' ? dict[currentLang].defaultProjName : p.name;
+          container.innerHTML += `
+            <div class="group cursor-pointer rounded-2xl border border-borderSoft bg-[#17223A] p-5 transition hover:border-accent relative">
+              <div onclick="openProject('${p.id}')">
+                <div class="mb-4 h-10 w-10 rounded-lg bg-accent/10 text-accent grid place-items-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+                </div>
+                <h4 class="font-bold">${displayName}</h4>
+                <p class="text-sm text-textSoft">${p.count} ${dict[currentLang].scriptsCount}</p>
+              </div>
+              <button onclick="deleteProject('${p.id}', event)" class="absolute top-4 right-4 text-red-500 hover:text-red-400 text-sm font-bold hidden group-hover:block">${dict[currentLang].btnDelProj}</button>
+            </div>
+          `;
+        });
+      }
+
+      window.openProject = (id) => {
+        const proj = myProjects.find(p => p.id === id);
+        if(proj) {
+          const displayName = proj.name === 'default' ? dict[currentLang].defaultProjName : proj.name;
+          document.getElementById("detailProjName").textContent = displayName;
+          document.getElementById("detailProjCount").textContent = proj.count;
+          switchTab('project-detail');
+        }
+      };
+
+      window.deleteProject = (id, event) => {
+        event.stopPropagation();
+        if (confirm(dict[currentLang].confirmDelProj)) {
+          myProjects = myProjects.filter(p => p.id !== id);
+          saveData();
+          injectUserData();
+          renderProjects();
+        }
+      };
+
+      document.getElementById("btnNewProject").addEventListener("click", () => {
+        const name = prompt(dict[currentLang].promptNewProj);
+        if (name && name.trim() !== "") {
+          myProjects.push({ id: Date.now().toString(), name: name, count: 0 });
+          saveData();
+          injectUserData();
+          renderProjects();
+          alert(dict[currentLang].alertProjCreated + name);
+        }
+      });
+
+     // Vytvoříme jednoduchou vlajku pro admina (v reálné aplikaci by toto přicházelo z backendu)
+     let isAdmin = false; // Změň na false pro běžné uživatele
+
+// FUNKCE KTERÁ NEDOVOLÍ GENEROVAT PŘI 0 KREDITECH A UKLÁDÁ ZMĚNY
+document.getElementById("btnGenerate").addEventListener("click", async () => {
+    // 1. Kontrola kreditů (pokud není admin a došly mu)
+    if (!isAdmin && userData.remainingGens <= 0) {
+        alert(dict[currentLang].alertNoCredits);
+        switchTab('pricing');
+        return; 
+    }
+    
+
+    // 2. Načteme hodnoty z formuláře, co uživatel naklikal
+    const topic = document.getElementById("aiTopic").value;
+    const platform = document.getElementById("aiPlatform").value;
+    const tone = document.getElementById("aiTone").value;
+    const length = document.getElementById("aiLength").value;
+    const purpose = document.getElementById("aiPurpose").value;
+    
+
+    if (!topic.trim()) {
+        alert("Prosím, zadejte o čem by video mělo být.");
+        return;
+    }
+    // Funkce, která přeloží text z AI do hezkého HTML
+function formatAIResponse(text) {
+    return text
+        // 1. Změní **tučný text** na opravdové HTML tučné písmo a obarví ho na bílo
+        .replace(/\*\*(.*?)\*\*/g, '<strong class="text-white">$1</strong>')
+        // 2. Změní nadpisy (např. === VARIANTA 1 ===) na žluté nadpisy
+        .replace(/===\s*(.*?)\s*===/g, '<h4 class="text-accent text-lg font-bold mt-6 mb-2">$1</h4>')
+        // 3. Změní trojité pomlčky na tenkou dělící čáru
+        .replace(/---/g, '<hr class="border-borderSoft my-6">');
+}
+
+    document.getElementById('aiLoading').classList.remove('hidden');
+    // 3. Změníme text tlačítka a zakážeme na něj klikat znovu
+    const btn = document.getElementById("btnGenerate");
+    const originalText = btn.textContent; 
+    btn.disabled = true;
+    
+btnGenerate.innerHTML = currentLang === 'cs' 
+    ? '<i class="fas fa-spinner fa-spin mr-2"></i> ⏳Generuji scénář...' 
+    : '<i class="fas fa-spinner fa-spin mr-2"></i> ⏳Generating script...'; 
+
+    try {
+        // 4. VOLÁME TVŮJ NETLIFY BACKEND (generate-script.js)
+        const response = await fetch("/api/generate-script", {
+            method: "POST",
+            body: JSON.stringify({ topic, platform, tone, length, purpose })
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            const aiText = result.script;
+
+            // KONTROLA: Pokud AI odmítla téma (např. "hubnutí" nebo politika)
+            if (aiText.includes("Zadané téma je příliš obecné") || aiText.includes("Omlouvám se, ale pro toto téma")) {
+                document.getElementById("aiResultBox").classList.remove("hidden");
+                document.getElementById("aiResultText").innerHTML = `<span class="text-red-400 font-bold">${aiText}</span>`;
+            } else {
+                // VŠE OK: Zobrazíme scénáře
+                document.getElementById("aiResultBox").classList.remove("hidden");
+                document.getElementById("aiResultText").innerHTML = formatAIResponse(aiText);
+
+                // 1. ZÁCHRANNÝ BLOK: ODEČET KREDITŮ
+                try {
+                    if (!isAdmin) {
+                        userData.remainingGens--;
+                        const userRef = window.fbDoc(window.db, "users", window.currentUserUid);
+                        await window.fbUpdateDoc(userRef, {
+                            credits: userData.remainingGens
+                        });
+                    }
+                    userData.totalScripts++;
+                    if (typeof saveData === "function") saveData(); 
+                    if (typeof injectUserData === "function") injectUserData(); 
+                } catch (e) {
+                    console.error("Nepodařilo se odečíst kredity:", e);
+                }
+
+                // 2. ZÁCHRANNÝ BLOK: ULOŽENÍ DO DATABÁZE (PROJEKTY)
+                try {
+                    if (window.currentUserUid) {
+                        await window.fbAddDoc(window.fbCollection(window.db, "scripts"), {
+                            userId: window.currentUserUid,
+                            topic: document.getElementById("aiTopic").value,
+                            platform: document.getElementById("aiPlatform").value,
+                            content: aiText,
+                            createdAt: new Date()
+                        });
+                        
+                        // Ihned znovu načteme projekty
+                        if (typeof loadMyScripts === "function") loadMyScripts();
+                    }
+                } catch (e) {
+                    console.error("Chyba při ukládání do projektů:", e);
+                }
+            }
+        } else {
+            alert("Chyba AI: " + (result.error || "Unknown error"));
+        }
+      } catch (err) {
+        console.error(err);
+        alert(currentLang === "cs" ? "Chyba sítě nebo serveru." : "Network or server error.");
+    } finally {
+        // 1. Schováme robota a vlnící se tečky
+        document.getElementById('aiLoading').classList.add('hidden');
+        
+        // 2. Aktivujeme tlačítko
+        btnGenerate.disabled = false;
+        
+        // 3. Vrátíme text tlačítka (správně podle jazyka)
+        btnGenerate.innerHTML = currentLang === "cs" 
+            ? '<i class="fas fa-magic mr-2"></i> Generovat scénář' 
+            : '<i class="fas fa-magic mr-2"></i> Generate script';
+    }
+
+});
+
+      function injectUserData() {
+        document.getElementById("dashTotalScripts").textContent = userData.totalScripts;
+        document.getElementById("dashRemainingGens").textContent = userData.remainingGens;
+        document.getElementById("dashActiveProjects").textContent = userData.activeProjects;
+        
+        document.getElementById("sidebarName").textContent = userData.name;
+        document.getElementById("sidebarGens").textContent = userData.remainingGens;
+        document.getElementById("sidebarMaxGens").textContent = userData.maxGens;
+        
+        const percent = (userData.remainingGens / userData.maxGens) * 100;
+        document.getElementById("sidebarProgressBar").style.width = `${percent}%`;
+
+        document.getElementById("setAccName").textContent = userData.name;
+        document.getElementById("setAccEmail").textContent = userData.email;
+        document.getElementById("setAccPlan").textContent = userData.planName;
+      }
+
+      function updateUI() {
+        document.querySelectorAll("[data-i18n]").forEach(el => {
+          const key = el.getAttribute("data-i18n");
+          if (dict[currentLang][key]) el.textContent = dict[currentLang][key];
+        });
+
+        document.querySelectorAll("[data-i18n-placeholder]").forEach(el => {
+          const key = el.getAttribute("data-i18n-placeholder");
+          if (dict[currentLang][key]) el.placeholder = dict[currentLang][key];
+        });
+        
+        document.getElementById("dashGreeting").textContent = currentLang === "cs" 
+          ? `Co dnes vytvoříme, ${userData.name}?` 
+          : `What shall we create today, ${userData.name}?`;
+
+        const titleMap = { dashboard: "tabDash", generator: "tabGen", projects: "tabProj", "project-detail": "tabProj", pricing: "tabPlans", settings: "tabSet" };
+        document.getElementById("pageTitle").textContent = dict[currentLang][titleMap[activeTab]];
+
+        document.getElementById("langCs").className = currentLang === "cs" ? "rounded-md bg-white px-2 py-1 text-xs font-bold text-slate-900 transition" : "rounded-md px-2 py-1 text-xs font-bold text-slate-400 transition hover:text-white";
+        document.getElementById("langEn").className = currentLang === "en" ? "rounded-md bg-white px-2 py-1 text-xs font-bold text-slate-900 transition" : "rounded-md px-2 py-1 text-xs font-bold text-slate-400 transition hover:text-white";
+        
+        renderProjects();
+      }
+
+      function switchTab(tabName) {
+        activeTab = tabName;
+        document.querySelectorAll("[data-page-content]").forEach(p => p.classList.add("hidden"));
+        document.querySelector(`[data-page-content="${tabName}"]`).classList.remove("hidden");
+        
+        document.querySelectorAll(".menu-btn").forEach(btn => {
+          // Pokud je otevřený detail projektu, udržíme zvýrazněné tlačítko "Projekty"
+          if (btn.dataset.page === tabName || (tabName === 'project-detail' && btn.dataset.page === 'projects')) {
+            btn.className = "menu-btn w-full rounded-lg px-3 py-2 text-left transition bg-panelSoft font-semibold text-white ring-1 ring-borderSoft";
+          } else {
+            btn.className = "menu-btn w-full rounded-lg px-3 py-2 text-left text-textSoft transition hover:bg-panelSoft hover:text-white";
+          }
+        });
+        updateUI();
+      }
+
+      document.getElementById("langCs").addEventListener("click", () => { currentLang = "cs"; updateUI(); });
+      document.getElementById("langEn").addEventListener("click", () => { currentLang = "en"; updateUI(); });
+
+      // Stripe integrace (Checkout Session)
+      const STRIPE_PUBLIC_KEY = "pk_test_51TQXFSJgsDD0uoUZ1uXl9SdWe6m87ncP0VBeSCUKvBy3jOGaOw8vKV8Sae4JXWZL73gNydFVIwUNl4azEy7paffV00nCvuKAtK";
+      const stripe = window.Stripe ? Stripe(STRIPE_PUBLIC_KEY) : null;
+
+      const STRIPE_PRICE_ID_BASIC = "price_1TQXLkJgsDD0uoUZ2ivFsXPq";
+      const STRIPE_PRICE_ID_PRO = "price_1TQXNaJgsDD0uoUZUJzYseGv";
+
+      async function startStripeCheckout(plan) {
+        const planConfig = {
+          basic: { priceId: STRIPE_PRICE_ID_BASIC, planName: "Basic" },
+          pro: { priceId: STRIPE_PRICE_ID_PRO, planName: "Pro" }
+        };
+        const selectedPlan = planConfig[plan];
+
+        if (!selectedPlan) {
+          alert("Neplatný plán.");
+          return;
+        }
+        if (!stripe) {
+          alert("Stripe není inicializovaný.");
+          return;
+        }
+
+        try {
+          const response = await fetch("/.netlify/functions/create-checkout-session", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              plan: selectedPlan.planName,
+              priceId: selectedPlan.priceId
+            })
+          });
+
+          if (!response.ok) {
+            throw new Error("Nepodařilo se vytvořit Stripe checkout session.");
+          }
+
+          const data = await response.json();
+          if (!data.sessionId) {
+            throw new Error("Backend nevrátil sessionId.");
+          }
+
+          const result = await stripe.redirectToCheckout({ sessionId: data.sessionId });
+          if (result.error) {
+            alert(result.error.message);
+          }
+        } catch (error) {
+          console.error("Stripe checkout error:", error);
+          alert("Platbu se nepodařilo spustit. Zkontroluj backend Stripe endpoint.");
+        }
+      }
+
+      document.getElementById("btnUpgradeBasic").addEventListener("click", () => startStripeCheckout("basic"));
+      document.getElementById("btnUpgradePro").addEventListener("click", () => startStripeCheckout("pro"));
+      
+      document.querySelectorAll(".menu-btn").forEach(btn => {
+        btn.addEventListener("click", () => switchTab(btn.dataset.page));
+      });
+
+      // Inicializace dat z localStorage po načtení
+      loadData();
+      injectUserData();
+      updateUI();
+    </script>
+
+<script type="module">
+  // 1. IMPORTY
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+  import { getFirestore, doc, onSnapshot, deleteDoc, updateDoc, collection, addDoc, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+  // 2. KONFIGURACE A INICIALIZACE FIREBASE
+  const firebaseConfig = {
+    apiKey: "AIzaSyCnWQvt7pnZ-Ta9zuM7PJaVWzBtn4xJNKU",
+    authDomain: "plumascript-4a494.firebaseapp.com",
+    projectId: "plumascript-4a494",
+    storageBucket: "plumascript-4a494.firebasestorage.app",
+    messagingSenderId: "679308972322",
+    appId: "1:679308972322:web:89ad6d8f9814e18579157b"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  // 3. EXPORT FUNKCÍ PRO ZBYTEK APLIKACE (Kritické pro generování a ukládání)
+  window.auth = auth;
+  window.db = db;
+  window.fbDoc = doc;
+  window.fbUpdateDoc = updateDoc;
+  window.fbCollection = collection;
+  window.fbAddDoc = addDoc;
+  window.fbQuery = query;
+  window.fbWhere = where;
+  window.fbGetDocs = getDocs;
+
+  // 4. FUNKCE PRO NAČÍTÁNÍ PROJEKTŮ
+  window.loadMyScripts = async function() {
+    if (!window.currentUserUid) return;
+    
+    const container = document.getElementById("projectsContainer");
+    if (!container) return;
+    
+    container.innerHTML = '<p class="text-textSoft animate-pulse">Načítám vaše projekty...</p>';
+
+    try {
+      const q = window.fbQuery(
+        window.fbCollection(window.db, "scripts"),
+        window.fbWhere("userId", "==", window.currentUserUid)
+      );
+
+      const querySnapshot = await window.fbGetDocs(q);
+      container.innerHTML = ""; 
+
+      if (querySnapshot.empty) {
+        container.innerHTML = '<p class="text-textSoft">Zatím zde nemáte žádné uložené scénáře.</p>';
+        return;
+      }
+
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        const date = data.createdAt ? data.createdAt.toDate().toLocaleDateString('cs-CZ') : "Neznámé datum";
+        
+        const card = document.createElement("div");
+        card.className = "p-5 bg-panelSoft rounded-2xl border border-borderSoft hover:border-accent transition-all cursor-pointer group";
+        card.innerHTML = `
+          <div class="flex justify-between items-start mb-3">
+            <span class="px-2 py-1 bg-accent/10 text-accent text-[10px] font-bold rounded uppercase tracking-wider">${data.platform}</span>
+            <span class="text-[10px] text-textSoft">${date}</span>
+          </div>
+          <h3 class="text-white font-bold group-hover:text-accent transition-colors truncate mb-2">${data.topic}</h3>
+          <p class="text-textSoft text-xs line-clamp-3 leading-relaxed">${data.content.replace(/<[^>]*>/g, '').substring(0, 150)}...</p>
+        `;
+
+        card.onclick = () => {
+          if (typeof switchTab === 'function') switchTab('generator'); 
+          document.getElementById("aiResultBox").classList.remove("hidden");
+          if (typeof formatAIResponse === 'function') {
+            document.getElementById("aiResultText").innerHTML = formatAIResponse(data.content);
+          } else {
+             document.getElementById("aiResultText").innerText = data.content;
+          }
+          document.getElementById("aiResultBox").scrollIntoView({ behavior: 'smooth' });
+        };
+
+        container.appendChild(card);
+      });
+    } catch (e) {
+      console.error("Chyba při načítání projektů:", e);
+      container.innerHTML = '<p class="text-red-400">Nepodařilo se načíst projekty.</p>';
+    }
+  };
+
+
+  // 5. HLAVNÍ LOGIKA PŘIHLÁŠENÍ (onAuthStateChanged)
+  onAuthStateChanged(auth, async (user) => {
+    const authBtn = document.getElementById("authActionButton");
+
+    if (user) {
+        // --- UŽIVATEL JE PŘIHLÁŠEN ---
+        window.currentUserUid = user.uid;
+        userData.email = user.email;
+        userData.name = user.displayName || user.email.split('@')[0];
+
+        // Změna tlačítka v hlavičce na "Odhlásit"
+        if (authBtn) {
+            authBtn.removeAttribute("data-i18n"); 
+            authBtn.textContent = currentLang === 'cs' ? "Odhlásit se" : "Log out";
+            authBtn.onclick = async () => {
+                await signOut(auth);
+                window.location.href = "login.html";
+            };
+        }
+
+        // Kontrola Admin vs Běžný uživatel
+        if (user.email === "tomas.kral345@gmail.com") {
+            isAdmin = true; 
+            userData.planName = "Admin";
+            userData.maxGens = "∞";
+            userData.remainingGens = "∞";
+            userData.name = "Tomas (Admin)";
+            if (typeof injectUserData === 'function') injectUserData();
+        } else {
+            isAdmin = false;
+            const userDocRef = doc(db, "users", user.uid);
+            onSnapshot(userDocRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    userData.remainingGens = data.credits;
+                    if (data.isPro) {
+                        userData.planName = "Pro";
+                        userData.remainingGens = "500";
+                        userData.maxGens = "500";
+                    } else {
+                        userData.planName = data.credits > 10 ? "Basic" : "Free";
+                        userData.maxGens = data.credits > 10 ? 50 : 10;
+                    }
+                    if (typeof injectUserData === 'function') injectUserData(); 
+                }
+            });
+        }
+        
+        // Načteme uživateli jeho uložené projekty
+        window.loadMyScripts();
+
+    } else {
+        // --- UŽIVATEL NENÍ PŘIHLÁŠEN ---
+        if (authBtn) {
+            authBtn.removeAttribute("data-i18n");
+            authBtn.textContent = currentLang === 'cs' ? "Přihlásit se" : "Log in";
+            authBtn.onclick = () => { window.location.href = "login.html"; };
+        }
+        // Pokud není přihlášený, přesměrujeme na login
+        window.location.href = "login.html"; 
+    }
+  });
+
+
+  // 6. OBSLUHA TLAČÍTEK V PROFILU (Změna hesla, Smazání účtu)
+  const btnChangePass = document.getElementById("btnChangePass");
+  if(btnChangePass) {
+    btnChangePass.onclick = () => {
+      if(!window.auth.currentUser) return;
+      sendPasswordResetEmail(auth, window.auth.currentUser.email).then(() => {
+        alert(dict[currentLang].alertPassReset);
+      }).catch((error) => {
+        console.error("Error sending reset email", error);
+      });
+    };
+  }
+
+  const btnDeleteAcc = document.getElementById("btnDeleteAcc");
+  if (btnDeleteAcc) {
+    btnDeleteAcc.onclick = async () => {
+      const shouldDelete = confirm(dict[currentLang].confirmDelAcc);
+      if (!shouldDelete || !window.auth.currentUser) return;
+
+      try {
+        await deleteDoc(doc(db, "users", window.currentUserUid));
+        await deleteUser(window.auth.currentUser);
+
+        localStorage.removeItem("plumaUserData");
+        localStorage.removeItem("plumaProjects");
+        alert(dict[currentLang].alertAccDel);
+        window.location.href = "login.html";
+      } catch (error) {
+        console.error("Account deletion error:", error);
+        if (error?.code === "auth/requires-recent-login") {
+          alert(dict[currentLang].alertReauth);
+          await signOut(auth);
+          window.location.href = "login.html";
+          return;
+        }
+        alert("Smazání účtu se nepodařilo. Zkuste to znovu.");
+      }
+    };
+  }
+
+
+  // 7. NEPRŮSTŘELNÉ KOPÍROVÁNÍ (Event Delegation)
+  document.addEventListener("click", async (e) => {
+      const copyBtn = e.target.closest("#btnCopy");
+      if (!copyBtn) return;
+
+      const resultBox = document.getElementById("aiResultText");
+      if (!resultBox) return;
+      
+      const textToCopy = resultBox.innerText;
+      if (!textToCopy || textToCopy.includes("Zde se objeví váš scénář")) return;
+      
+      try {
+          await navigator.clipboard.writeText(textToCopy);
+          
+          const originalHTML = copyBtn.innerHTML;
+          copyBtn.innerHTML = currentLang === 'cs' ? '✅ Zkopírováno!' : '✅ Copied!';
+          copyBtn.classList.remove("bg-panelSoft", "text-textSoft");
+          copyBtn.classList.add("bg-green-500", "text-white");
+          
+          setTimeout(() => {
+              copyBtn.innerHTML = originalHTML;
+              copyBtn.classList.remove("bg-green-500", "text-white");
+              copyBtn.classList.add("bg-panelSoft", "text-textSoft");
+          }, 2000);
+      } catch (err) {
+          console.error("Kopírování selhalo:", err);
+      }
+  });
+
+</script>
