@@ -748,7 +748,7 @@ btnGenerate.innerHTML = currentLang === 'cs'
         }
 
         try {
-          const response = await fetch("/.netlify/functions/create-checkout-session", {
+          const response = await fetch("/api/create-checkout", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -793,6 +793,7 @@ btnGenerate.innerHTML = currentLang === 'cs'
   // 1. IMPORTY
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
   import { getFirestore, doc, onSnapshot, deleteDoc, updateDoc, collection, addDoc, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+  import { getAuth, onAuthStateChanged, signOut, sendPasswordResetEmail, deleteUser } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
   // 2. KONFIGURACE A INICIALIZACE FIREBASE
   const firebaseConfig = {
@@ -806,6 +807,7 @@ btnGenerate.innerHTML = currentLang === 'cs'
 
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
+  const auth = getAuth(app); // TADY BYLA TA CHYBA - TOHLE CHYBĚLO!
 
   // 3. EXPORT FUNKCÍ PRO ZBYTEK APLIKACE (Kritické pro generování a ukládání)
   window.auth = auth;
