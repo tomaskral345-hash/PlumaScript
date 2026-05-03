@@ -805,7 +805,6 @@ btnGenerate.innerHTML = currentLang === 'cs'
   };
 
   const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
   const db = getFirestore(app);
 
   // 3. EXPORT FUNKCÍ PRO ZBYTEK APLIKACE (Kritické pro generování a ukládání)
