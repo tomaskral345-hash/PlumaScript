@@ -681,6 +681,25 @@ let userData = {
       if(btnBasic) btnBasic.addEventListener("click", () => startStripeCheckout("basic"));
       if(btnPro) btnPro.addEventListener("click", () => startStripeCheckout("pro"));
 
+      // Funkce pro smazání projektu/scénáře
+      window.deleteProject = async (id, event) => {
+        event.stopPropagation(); // Zabraní prokliknutí do detailu, když klikáš jen na křížek
+        
+        if (confirm(dict[currentLang].confirmDelProj || "Opravdu to chceš smazat?")) {
+          try {
+            // Smazání přímo z Firebase
+            await window.fbDeleteDoc(window.fbDoc(window.db, "scripts", id));
+            
+            // Okamžité překreslení seznamu, aby to hned zmizelo z obrazovky
+            if (typeof window.loadMyScripts === "function") {
+               window.loadMyScripts();
+            }
+          } catch (e) {
+            console.error("Chyba při mazání:", e);
+          }
+        }
+      };
+
       // Start up
       updateUI();
     </script>
@@ -802,6 +821,22 @@ let userData = {
       // HLAVNÍ LOGIKA PŘIHLÁŠENÍ A UŽIVATELE
       onAuthStateChanged(auth, async (user) => {
         const authBtn = document.getElementById("authActionButton");
+
+        if (authBtn) {
+  if (user) {
+    // Když JE přihlášen
+    authBtn.textContent = dict[currentLang].logoutBtn || "Odhlásit se";
+    authBtn.onclick = () => {
+      window.fbSignOut(window.auth).then(() => {
+        window.location.reload(); // Obnoví stránku po odhlášení
+      });
+    };
+  } else {
+    // Když NENÍ přihlášen
+    authBtn.textContent = dict[currentLang].loginBtn || "Přihlásit se";
+    // Tady případně vrať původní onclick pro otevření přihlašovacího okna
+  }
+}
 
         if (user) {
             window.currentUserUid = user.uid;
