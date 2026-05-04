@@ -377,16 +377,16 @@
 
     <script>
       // Naše lokální projekty a data - iniciováno prázdně pro načtení z localStorage
-      let myProjects = [];
-      const userData = {
-        name: "Uživatel",
-        email: "Nenastaveno",
-        planName: "Free",
-        totalScripts: 0,
-        remainingGens: 10,
-        maxGens: 10,
-        activeProjects: 0
-      };
+   let currentLang = 'cs';
+let activeTab = 'dashboard';
+let userData = {
+    name: "Uživatel",
+    email: "",
+    totalScripts: 0,
+    remainingGens: 0,
+    maxGens: 10,
+    planName: "Free"
+};
 
       const dict = {
         cs: {
@@ -467,107 +467,17 @@
       let currentLang = "cs";
       let activeTab = "dashboard";
 
-      // Paměť pro data
-      function loadData() {
-        const savedU = localStorage.getItem('plumaUserData');
-        if (savedU) {
-            Object.assign(userData, JSON.parse(savedU));
-        }
-        
-        const savedP = localStorage.getItem('plumaProjects');
-        if (savedP) {
-            myProjects = JSON.parse(savedP);
-        } else {
-            // Výchozí projekt pro nové uživatele
-            myProjects = [{ id: "1", name: "default", count: 4 }];
-        }
-        userData.activeProjects = myProjects.length;
-      }
-
-      function saveData() {
-        userData.activeProjects = myProjects.length;
-        localStorage.setItem('plumaUserData', JSON.stringify(userData));
-        localStorage.setItem('plumaProjects', JSON.stringify(myProjects));
-      }
-
-      function renderProjects() {
-        const container = document.getElementById("projectsContainer");
-        container.innerHTML = "";
-        
-        myProjects.forEach(p => {
-          const displayName = p.name === 'default' ? dict[currentLang].defaultProjName : p.name;
-          container.innerHTML += `
-            <div class="group cursor-pointer rounded-2xl border border-borderSoft bg-[#17223A] p-5 transition hover:border-accent relative">
-              <div onclick="openProject('${p.id}')">
-                <div class="mb-4 h-10 w-10 rounded-lg bg-accent/10 text-accent grid place-items-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
-                </div>
-                <h4 class="font-bold">${displayName}</h4>
-                <p class="text-sm text-textSoft">${p.count} ${dict[currentLang].scriptsCount}</p>
-              </div>
-              <button onclick="deleteProject('${p.id}', event)" class="absolute top-4 right-4 text-red-500 hover:text-red-400 text-sm font-bold hidden group-hover:block">${dict[currentLang].btnDelProj}</button>
-            </div>
-          `;
-        });
-      }
-
-      window.openProject = (id) => {
-        const proj = myProjects.find(p => p.id === id);
-        if(proj) {
-          const displayName = proj.name === 'default' ? dict[currentLang].defaultProjName : proj.name;
-          document.getElementById("detailProjName").textContent = displayName;
-          document.getElementById("detailProjCount").textContent = proj.count;
-          switchTab('project-detail');
-        }
+      // Paměť pro data, aby aplikace nepadala
+      let userData = {
+        name: "Uživatel",
+        email: "",
+        planName: "Free",
+        totalScripts: 0,
+        remainingGens: 10,
+        maxGens: 10
       };
 
-      window.deleteProject = (id, event) => {
-        event.stopPropagation();
-        if (confirm(dict[currentLang].confirmDelProj)) {
-          myProjects = myProjects.filter(p => p.id !== id);
-          saveData();
-          injectUserData();
-          renderProjects();
-        }
-      };
-
-      document.getElementById("btnNewProject").addEventListener("click", () => {
-        const name = prompt(dict[currentLang].promptNewProj);
-        if (name && name.trim() !== "") {
-          myProjects.push({ id: Date.now().toString(), name: name, count: 0 });
-          saveData();
-          injectUserData();
-          renderProjects();
-          alert(dict[currentLang].alertProjCreated + name);
-        }
-      });
-
-     // Vytvoříme jednoduchou vlajku pro admina (v reálné aplikaci by toto přicházelo z backendu)
-     let isAdmin = false; // Změň na false pro běžné uživatele
-
-// FUNKCE KTERÁ NEDOVOLÍ GENEROVAT PŘI 0 KREDITECH A UKLÁDÁ ZMĚNY
-document.getElementById("btnGenerate").addEventListener("click", async () => {
-    // 1. Kontrola kreditů (pokud není admin a došly mu)
-    if (!isAdmin && userData.remainingGens <= 0) {
-        alert(dict[currentLang].alertNoCredits);
-        switchTab('pricing');
-        return; 
-    }
-    
-
-    // 2. Načteme hodnoty z formuláře, co uživatel naklikal
-    const topic = document.getElementById("aiTopic").value;
-    const platform = document.getElementById("aiPlatform").value;
-    const tone = document.getElementById("aiTone").value;
-    const length = document.getElementById("aiLength").value;
-    const purpose = document.getElementById("aiPurpose").value;
-    
-
-    if (!topic.trim()) {
-        alert("Prosím, zadejte o čem by video mělo být.");
-        return;
-    }
-    // Formátování textu z AI
+      // Formátování textu z AI
       function formatAIResponse(text) {
         return text
           .replace(/\*\*(.*?)\*\*/g, '<strong class="text-white">$1</strong>')
