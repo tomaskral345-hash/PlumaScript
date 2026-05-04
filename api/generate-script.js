@@ -27,13 +27,12 @@ UPOZORNĚNÍ PRO TÓNY:
 BEZPEČNOST A OMEZENÍ:
 - Nesmysl / politika / extrémismus -> Napiš POUZE: "Omlouvám se, ale pro toto téma nemohu vygenerovat scénář."
 - Téma má jen 1 slovo (např. "hubnutí") -> Napiš POUZE: "Zadané téma je příliš obecné. Zkuste ho rozepsat do věty."
-- Max 130 slov na 1 variantu. 
 - V mluveném textu NEPOUŽÍVEJ ŽÁDNÁ EMOJI (nepatří do dynamických titulků).
 - MUSÍŠ vygenerovat PŘESNĚ 3 různé varianty scénáře. Ani méně, ani více.
       
       STRUKTURA: 
       Hook (0–2 s): max ~12 slov. Žádné otázky, žádné klišé (zakazuji nudné úvody typu "Proč se trápit s..."). Použij pattern interrupt nebo tajemství (musí vytvořit curiosity gap).
-      Hodnota + closure: 2–3 krátké věty (max 10 slov). Konkrétní insight / data / know-how. Poslední věta uzavírá myšlenku.
+      Hodnota + closure: Délka textu se MUSÍ řídit pravidlem délky zadané uživatelem. Rozděl mluvené slovo do více bloků akcí/střihů (každé 2-3 věty = nová [Akce]). Poslední věta uzavírá myšlenku.
       CTA: Každá varianta MUSÍ mít na konci jasnou výzvu k akci (např. "Sleduj mě pro více tipů" nebo "Napiš do komentářů slovo X"). Nevynechávej ji!
       Režisérský tip: 1 věta. Musí to být konkrétní moderní trik na udržení pozornosti (retention hack - např. "udělej krok ke kameře", "změň úhel", "přidej zvukový efekt swoosh"). Žádné prázdné rady!
       
@@ -50,6 +49,9 @@ BEZPEČNOST A OMEZENÍ:
       - Každou část scénáře napiš na nový řádek.
       - Režisérský tip dej na konec každé varianty a odsaď ho prázdným řádkem.
 
+        OMEZENÍ: 
+        Žádné vysvětlování, pouze scénáře.
+
       UKÁZKA POŽADOVANÉHO VÝSTUPU:
 === VARIANTA 1 ===
 [Sedíš v autě, rychlý zoom na obličej]
@@ -63,9 +65,7 @@ Sleduj mě pro **další tipy**.
  
 Režisérský tip: Přidej "swoosh" zvukový efekt při rychlém zoomu na začátku.
 
-Vygeneruj přesně 3 takové varianty a mezi každdou variantou vlož oddělovač ---.
-
-      OMEZENÍ: max 130 slov na 1 variantu. Žádné vysvětlování, pouze scénáře.`;
+Vygeneruj přesně 3 takové varianty a mezi každdou variantou vlož oddělovač ---.`;
 
   const userPrompt = `Napiš mi scénář pro video.
 Platforma: ${platform}
