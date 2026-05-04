@@ -705,7 +705,9 @@ await window.fbUpdateDoc(userRef, {
         document.getElementById("langCs").className = currentLang === "cs" ? "rounded-md bg-white px-2 py-1 text-xs font-bold text-slate-900 transition" : "rounded-md px-2 py-1 text-xs font-bold text-slate-400 transition hover:text-white";
         document.getElementById("langEn").className = currentLang === "en" ? "rounded-md bg-white px-2 py-1 text-xs font-bold text-slate-900 transition" : "rounded-md px-2 py-1 text-xs font-bold text-slate-400 transition hover:text-white";
         
-        renderProjects();
+        //renderProjects();
+        if (window.currentUserUid && typeof window.loadMyScripts === 'function') {
+            window.loadMyScripts();
       }
 
       function switchTab(tabName) {
@@ -944,6 +946,15 @@ await window.fbUpdateDoc(userRef, {
             });
             
             window.loadMyScripts();
+        }
+      // PŘIDÁNO: Oprava tlačítka pro odhlášení
+        if (authBtn) {
+            authBtn.removeAttribute("data-i18n");
+            authBtn.innerHTML = '<i class="fas fa-sign-out-alt"></i> ' + (currentLang === 'cs' ? 'Odhlásit se' : 'Log out');
+            authBtn.onclick = async () => {
+                await window.fbSignOut(window.auth);
+                window.location.href = "login.html";
+            };
         }
 
     } else {
