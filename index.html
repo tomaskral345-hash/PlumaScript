@@ -793,9 +793,9 @@ await window.fbUpdateDoc(userRef, {
     </script>
 
 <script type="module">
-  // 1. IMPORTY
+  // 1. IMPORTY (Přidán setDoc!)
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-  import { getFirestore, doc, onSnapshot, deleteDoc, updateDoc, collection, addDoc, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+  import { getFirestore, doc, onSnapshot, setDoc, deleteDoc, updateDoc, collection, addDoc, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
   import { getAuth, onAuthStateChanged, signOut, sendPasswordResetEmail, deleteUser } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
   // 2. KONFIGURACE A INICIALIZACE FIREBASE
@@ -812,10 +812,11 @@ await window.fbUpdateDoc(userRef, {
   const auth = getAuth(app);
   const db = getFirestore(app);
 
-  // 3. EXPORT FUNKCÍ PRO ZBYTEK APLIKACE (Kritické pro generování a ukládání)
+  // 3. EXPORT FUNKCÍ PRO ZBYTEK APLIKACE
   window.auth = auth;
   window.db = db;
   window.fbDoc = doc;
+  window.fbSetDoc = setDoc; // PŘIDÁNO!
   window.fbUpdateDoc = updateDoc;
   window.fbCollection = collection;
   window.fbAddDoc = addDoc;
@@ -876,87 +877,82 @@ await window.fbUpdateDoc(userRef, {
       });
     } catch (e) {
       console.error("Chyba při načítání projektů:", e);
-      container.innerHTML = '<p class="text-red-400">Nepodařilo se načíst projekty.</p>';
+      container.innerHTML = '<p class="text-red-400">Nepodařilo se načíst projekty. (Možná chybí Index ve Firebase, koukni do F12)</p>';
     }
   };
 
 
-  // 5. HLAVNÍ LOGIKA PŘIHLÁŠENÍ (onAuthStateChanged)
+  // 5. HLAVNÍ LOGIKA PŘIHLÁŠENÍ (onAuthStateChanged) - VYČIŠTĚNO!
   onAuthStateChanged(auth, async (user) => {
     const authBtn = document.getElementById("authActionButton");
 
-    // ... uvnitř onAuthStateChanged(auth, async (user) => { ...
-if (user) {
-    window.currentUserUid = user.uid;
-    userData.email = user.email;
-    userData.name = user.displayName || user.email.split('@')[0];
-
-    const userDocRef = window.fbDoc(window.db, "users", user.uid);
-    
-    // Sledujeme data uživatele v reálném čase
-    window.fbOnSnapshot(userDocRef, async (docSnap) => {
-        if (docSnap.exists()) {
-            const data = docSnap.data();
-            userData.remainingGens = data.credits;
-            userData.planName = data.plan;
-            // ... další nastavení dat ...
-        } else {
-            // POJISTKA: Pokud uživatel v databázi neexistuje, vytvoříme ho
-            console.log("Vytvářím chybějící profil v databázi...");
-            await window.fbSetDoc(userDocRef, {
-                name: userData.name,
-                email: userData.email,
-                credits: 10,
-                plan: "free",
-                isAdmin: false,
-                createdAt: new Date()
-            });
-        }
-        if (typeof injectUserData === 'function') injectUserData();
-    });
-
-    window.loadMyScripts(); 
-}
+    if (user) {
+        window.currentUserUid = user.uid;
+        userData.email = user.email;
+        userData.name = user.displayName || user.email.split('@')[0];
 
         // Kontrola Admin vs Běžný uživatel
         if (user.email === "tomas.kral345@gmail.com") {
-            isAdmin = true; 
+            window.isAdmin = true; 
             userData.planName = "Admin";
             userData.maxGens = "∞";
             userData.remainingGens = "∞";
             userData.name = "Tomas (Admin)";
             if (typeof injectUserData === 'function') injectUserData();
+            window.loadMyScripts();
         } else {
-            isAdmin = false;
-            const userDocRef = doc(db, "users", user.uid);
-            onSnapshot(userDocRef, (docSnap) => {
+            window.isAdmin = false;
+            const userDocRef = window.fbDoc(window.db, "users", user.uid);
+            
+            // Sledujeme data uživatele v reálném čase + POJISTKA PROTI CHYBĚJÍCÍMU PROFILU
+            onSnapshot(userDocRef, async (docSnap) => {
                 if (docSnap.exists()) {
                     const data = docSnap.data();
                     userData.remainingGens = data.credits;
-                    if (data.isPro) {
+                    
+                    // Nastavení plánů
+                    if (data.isPro || data.plan === "pro") {
                         userData.planName = "Pro";
-                        userData.remainingGens = "500";
-                        userData.maxGens = "500";
+                        userData.maxGens = 500;
+                    } else if (data.plan === "basic" || data.credits > 10) {
+                        userData.planName = "Basic";
+                        userData.maxGens = 50;
                     } else {
-                        userData.planName = data.credits > 10 ? "Basic" : "Free";
-                        userData.maxGens = data.credits > 10 ? 50 : 10;
+                        userData.planName = "Free";
+                        userData.maxGens = 10;
                     }
-                    if (typeof injectUserData === 'function') injectUserData(); 
+                } else {
+                    // POJISTKA: Uživatel je přihlášený e-mailem, ale chybí mu záznam v databázi! Vytvoříme ho.
+                    console.log("Vytvářím chybějící profil v databázi...");
+                    try {
+                        await window.fbSetDoc(userDocRef, {
+                            name: userData.name,
+                            email: userData.email,
+                            credits: 10,
+                            plan: "free",
+                            isAdmin: false,
+                            createdAt: new Date()
+                        });
+                        userData.remainingGens = 10;
+                        userData.planName = "Free";
+                        userData.maxGens = 10;
+                    } catch (err) {
+                        console.error("Nepodařilo se vytvořit chybějící profil. Zkontroluj Firestore Rules:", err);
+                    }
                 }
+                if (typeof injectUserData === 'function') injectUserData(); 
             });
+            
+            window.loadMyScripts();
         }
-        
-        // Načteme uživateli jeho uložené projekty
-        window.loadMyScripts();
 
     } else {
         // --- UŽIVATEL NENÍ PŘIHLÁŠEN ---
         if (authBtn) {
             authBtn.removeAttribute("data-i18n");
-            authBtn.textContent = currentLang === 'cs' ? "Přihlásit se" : "Log in";
+            authBtn.textContent = typeof currentLang !== 'undefined' && currentLang === 'cs' ? "Přihlásit se" : "Log in";
             authBtn.onclick = () => { window.location.href = "login.html"; };
         }
-        // Pokud není přihlášený, přesměrujeme na login
         window.location.href = "login.html"; 
     }
   });
@@ -968,7 +964,7 @@ if (user) {
     btnChangePass.onclick = () => {
       if(!window.auth.currentUser) return;
       sendPasswordResetEmail(auth, window.auth.currentUser.email).then(() => {
-        alert(dict[currentLang].alertPassReset);
+        alert("Na váš e-mail byl odeslán odkaz pro změnu hesla.");
       }).catch((error) => {
         console.error("Error sending reset email", error);
       });
@@ -978,7 +974,7 @@ if (user) {
   const btnDeleteAcc = document.getElementById("btnDeleteAcc");
   if (btnDeleteAcc) {
     btnDeleteAcc.onclick = async () => {
-      const shouldDelete = confirm(dict[currentLang].confirmDelAcc);
+      const shouldDelete = confirm("Tato akce je nevratná. Opravdu chcete smazat účet?");
       if (!shouldDelete || !window.auth.currentUser) return;
 
       try {
@@ -987,12 +983,12 @@ if (user) {
 
         localStorage.removeItem("plumaUserData");
         localStorage.removeItem("plumaProjects");
-        alert(dict[currentLang].alertAccDel);
+        alert("Váš účet byl úspěšně smazán.");
         window.location.href = "login.html";
       } catch (error) {
         console.error("Account deletion error:", error);
         if (error?.code === "auth/requires-recent-login") {
-          alert(dict[currentLang].alertReauth);
+          alert("Z bezpečnostních důvodů se prosím odhlaste a znovu přihlaste před smazáním účtu.");
           await signOut(auth);
           window.location.href = "login.html";
           return;
@@ -1018,7 +1014,7 @@ if (user) {
           await navigator.clipboard.writeText(textToCopy);
           
           const originalHTML = copyBtn.innerHTML;
-          copyBtn.innerHTML = currentLang === 'cs' ? '✅ Zkopírováno!' : '✅ Copied!';
+          copyBtn.innerHTML = (typeof currentLang !== 'undefined' && currentLang === 'cs') ? '✅ Zkopírováno!' : '✅ Copied!';
           copyBtn.classList.remove("bg-panelSoft", "text-textSoft");
           copyBtn.classList.add("bg-green-500", "text-white");
           
