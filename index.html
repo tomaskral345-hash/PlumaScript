@@ -613,9 +613,12 @@ btnGenerate.innerHTML = currentLang === 'cs'
                 try {
                     if (!isAdmin) {
                         userData.remainingGens--;
-                        const userRef = window.fbDoc(window.db, "users", window.currentUserUid);
-                        await window.fbUpdateDoc(userRef, {
-                            credits: userData.remainingGens
+const userRef = window.fbDoc(window.db, "users", window.currentUserUid);
+await window.fbUpdateDoc(userRef, {
+    credits: userData.remainingGens,
+    // Přidáme tato pole, aby pravidla (Rules) byla spokojená
+    plan: userData.planName.toLowerCase(), 
+    isAdmin: isAdmin
                         });
                     }
                     userData.totalScripts++;
@@ -882,21 +885,38 @@ btnGenerate.innerHTML = currentLang === 'cs'
   onAuthStateChanged(auth, async (user) => {
     const authBtn = document.getElementById("authActionButton");
 
-    if (user) {
-        // --- UŽIVATEL JE PŘIHLÁŠEN ---
-        window.currentUserUid = user.uid;
-        userData.email = user.email;
-        userData.name = user.displayName || user.email.split('@')[0];
+    // ... uvnitř onAuthStateChanged(auth, async (user) => { ...
+if (user) {
+    window.currentUserUid = user.uid;
+    userData.email = user.email;
+    userData.name = user.displayName || user.email.split('@')[0];
 
-        // Změna tlačítka v hlavičce na "Odhlásit"
-        if (authBtn) {
-            authBtn.removeAttribute("data-i18n"); 
-            authBtn.textContent = currentLang === 'cs' ? "Odhlásit se" : "Log out";
-            authBtn.onclick = async () => {
-                await signOut(auth);
-                window.location.href = "login.html";
-            };
+    const userDocRef = window.fbDoc(window.db, "users", user.uid);
+    
+    // Sledujeme data uživatele v reálném čase
+    window.fbOnSnapshot(userDocRef, async (docSnap) => {
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            userData.remainingGens = data.credits;
+            userData.planName = data.plan;
+            // ... další nastavení dat ...
+        } else {
+            // POJISTKA: Pokud uživatel v databázi neexistuje, vytvoříme ho
+            console.log("Vytvářím chybějící profil v databázi...");
+            await window.fbSetDoc(userDocRef, {
+                name: userData.name,
+                email: userData.email,
+                credits: 10,
+                plan: "free",
+                isAdmin: false,
+                createdAt: new Date()
+            });
         }
+        if (typeof injectUserData === 'function') injectUserData();
+    });
+
+    window.loadMyScripts(); 
+}
 
         // Kontrola Admin vs Běžný uživatel
         if (user.email === "tomas.kral345@gmail.com") {
