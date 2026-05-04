@@ -811,8 +811,9 @@ let userData = {
                 <span class="px-2 py-1 bg-accent/10 text-accent text-[10px] font-bold rounded uppercase tracking-wider">${data.platform || 'Obecné'}</span>
                 <span class="text-[10px] text-textSoft">${date}</span>
                 <button onclick="window.deleteProject('${doc.id}', event)" class="text-sm text-red-500 hover:text-red-700 font-bold ml-4">
-  Smazat
-</button>
+                <i class="fas fa-trash mr-2"></i> 
+                ${dict[currentLang].btnDelProj} 
+               </button>
               </div>
               <h3 class="text-white font-bold group-hover:text-accent transition-colors truncate mb-2 pr-6">${data.topic}</h3>
               <p class="text-textSoft text-xs line-clamp-3 leading-relaxed">${(data.content || '').replace(/<[^>]*>/g, '').substring(0, 150)}...</p>
