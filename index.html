@@ -463,7 +463,30 @@ let userData = {
           aiThinking: "PlumaScript is thinking...",
         }
       };
-      
+
+      window.deleteProject = async (id, event) => {
+    if (event) event.stopPropagation(); // Zabrání otevření projektu při kliku na smazat
+    
+    // Použijeme překlad pro potvrzení
+    const confirmMsg = dict[currentLang].confirmDelAcc || "Opravdu smazat?";
+    if (!confirm(confirmMsg)) return;
+
+    try {
+        // Cesta k dokumentu: databáze -> kolekce "scripts" -> konkrétní ID
+        const docRef = window.fbDoc(window.db, "scripts", id);
+        await window.fbDeleteDoc(docRef);
+        
+        console.log("Smazáno z Firebase:", id);
+        
+        // Znovu načteme seznam, aby projekt zmizel z obrazovky
+        if (typeof window.loadMyScripts === "function") {
+            window.loadMyScripts();
+        }
+    } catch (e) {
+        console.error("Chyba při mazání:", e);
+        alert("Nepodařilo se smazat projekt. Zkontroluj práva v Firebase.");
+    }
+};
 
       // Formátování textu z AI
       function formatAIResponse(text) {
@@ -721,7 +744,8 @@ let userData = {
       const app = initializeApp(firebaseConfig);
       const auth = getAuth(app);
       const db = getFirestore(app);
-
+      
+      window.fbSignOut = signOut; // Mapování originální Firebase funkce do window
       window.auth = auth;
       window.db = db;
       window.fbDoc = doc;
@@ -830,11 +854,15 @@ let userData = {
     // Když JE přihlášen
     authBtn.removeAttribute("data-i18n"); // TOTO JE TEN MAGIC FIX
     authBtn.textContent = dict[currentLang].logoutBtn || "Odhlásit se";
-    authBtn.onclick = () => {
-      window.fbSignOut(window.auth).then(() => {
-        window.location.reload(); // Obnoví stránku po odhlášení
-      });
-    };
+    authBtn.onclick = async () => {
+    try {
+        await window.fbSignOut(window.auth);
+        console.log("Odhlášeno");
+        window.location.href = "login.html"; // Natvrdo přesměrujeme po odhlášení
+    } catch (error) {
+        console.error("Chyba při odhlašování:", error);
+    }
+};
   } else {
     // Když NENÍ přihlášen
     authBtn.textContent = dict[currentLang].loginBtn || "Přihlásit se";
