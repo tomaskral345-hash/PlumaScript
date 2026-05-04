@@ -464,21 +464,275 @@ let userData = {
         }
       };
 
-      window.deleteProject = async (id, event) => {
-    if (event) event.stopPropagation(); // Zabrání otevření projektu při kliku na smazat
+      // Formátování textu z AI
+  function formatAIResponse(text) {
+    return text
+      .replace(/\*\*(.*?)\*\*/g, '<strong class="text-white">$1</strong>')
+      .replace(/===\s*(.*?)\s*===/g, '<h4 class="text-accent text-lg font-bold mt-6 mb-2">$1</h4>')
+      .replace(/---/g, '<hr class="border-borderSoft my-6">');
+  }
+
+  // TLAČÍTKO GENERATE: Zpracování, Firebase zápis a odečet kreditů
+  document.getElementById("btnGenerate").addEventListener("click", async () => {
+    // Kontrola kreditů (pokud není admin)
+    if (!window.isAdmin && userData.remainingGens <= 0) {
+      alert(dict[currentLang].alertNoCredits);
+      switchTab('pricing');
+      return; 
+    }
+
+    const topic = document.getElementById("aiTopic").value;
+    const platform = document.getElementById("aiPlatform").value;
+    const tone = document.getElementById("aiTone").value;
+    const length = document.getElementById("aiLength").value;
+    const purpose = document.getElementById("aiPurpose").value;
+
+    if (!topic.trim()) {
+      alert(currentLang === 'cs' ? "Prosím, zadejte o čem by video mělo být." : "Please enter a video topic.");
+      return;
+    }
+
+    document.getElementById('aiLoading').classList.remove('hidden');
+    const btnGenerate = document.getElementById("btnGenerate");
+    btnGenerate.disabled = true;
+    btnGenerate.innerHTML = currentLang === 'cs' 
+      ? '<i class="fas fa-spinner fa-spin mr-2"></i> ⏳Generuji scénář...' 
+      : '<i class="fas fa-spinner fa-spin mr-2"></i> ⏳Generating script...'; 
+
+    try {
+      const targetLanguage = currentLang === 'en' ? 'English' : 'Čeština';
+      
+      const response = await fetch("/api/generate-script", {
+        method: "POST",
+        body: JSON.stringify({ topic, platform, tone, length, purpose, targetLanguage })
+      });
+      const result = await response.json();
+
+      if (response.ok) {
+        const aiText = result.script;
+
+        if (aiText.includes("Zadané téma je příliš obecné") || aiText.includes("Omlouvám se, ale pro toto téma")) {
+          document.getElementById("aiResultBox").classList.remove("hidden");
+          document.getElementById("aiResultText").innerHTML = `<span class="text-red-400 font-bold">${aiText}</span>`;
+        } else {
+          document.getElementById("aiResultBox").classList.remove("hidden");
+          document.getElementById("aiResultText").innerHTML = formatAIResponse(aiText);
+
+          try {
+            if (!window.isAdmin) {
+              userData.remainingGens--;
+              const userRef = window.fbDoc(window.db, "users", window.currentUserUid);
+              await window.fbUpdateDoc(userRef, {
+                credits: userData.remainingGens,
+                plan: userData.planName.toLowerCase(), 
+                isAdmin: window.isAdmin
+              });
+            }
+            userData.totalScripts++;
+            if (typeof injectUserData === "function") injectUserData(); 
+          } catch (e) {
+            console.error("Nepodařilo se odečíst kredity:", e);
+          }
+
+          try {
+            if (window.currentUserUid) {
+              await window.fbAddDoc(window.fbCollection(window.db, "scripts"), {
+                userId: window.currentUserUid,
+                topic: topic,
+                platform: platform,
+                content: aiText,
+                createdAt: new Date()
+              });
+              if (typeof loadMyScripts === "function") window.loadMyScripts();
+            }
+          } catch (e) {
+            console.error("Chyba při ukládání scénáře:", e);
+          }
+        }
+      } else {
+        alert("Chyba AI: " + (result.error || "Unknown error"));
+      }
+    } catch (err) {
+      console.error(err);
+      alert(currentLang === "cs" ? "Chyba sítě nebo serveru." : "Network or server error.");
+    } finally {
+      document.getElementById('aiLoading').classList.add('hidden');
+      btnGenerate.disabled = false;
+      btnGenerate.innerHTML = currentLang === "cs" 
+        ? '<i class="fas fa-magic mr-2"></i> Generovat scénář' 
+        : '<i class="fas fa-magic mr-2"></i> Generate script';
+    }
+  });
+
+  // Zobrazení uživatelských dat
+  function injectUserData() {
+    document.getElementById("dashTotalScripts").textContent = userData.totalScripts || 0;
+    document.getElementById("dashRemainingGens").textContent = userData.remainingGens || 0;
     
-    // Použijeme překlad pro potvrzení
-    const confirmMsg = dict[currentLang].confirmDelAcc || "Opravdu smazat?";
+    document.getElementById("sidebarName").textContent = userData.name || "Uživatel";
+    document.getElementById("sidebarGens").textContent = userData.remainingGens || 0;
+    document.getElementById("sidebarMaxGens").textContent = userData.maxGens || 10;
+    
+    const percent = userData.maxGens === "∞" ? 100 : (userData.remainingGens / userData.maxGens) * 100;
+    document.getElementById("sidebarProgressBar").style.width = `${percent}%`;
+
+    if(document.getElementById("setAccName")) {
+      document.getElementById("setAccName").textContent = userData.name;
+      document.getElementById("setAccEmail").textContent = userData.email;
+      document.getElementById("setAccPlan").textContent = userData.planName;
+    }
+  }
+
+  // Aktualizace textů podle jazyka
+  function updateUI() {
+    document.querySelectorAll("[data-i18n]").forEach(el => {
+      const key = el.getAttribute("data-i18n");
+      if (dict[currentLang][key]) el.textContent = dict[currentLang][key];
+    });
+
+    document.querySelectorAll("[data-i18n-placeholder]").forEach(el => {
+      const key = el.getAttribute("data-i18n-placeholder");
+      if (dict[currentLang][key]) el.placeholder = dict[currentLang][key];
+    });
+    
+    document.getElementById("dashGreeting").textContent = currentLang === "cs" 
+      ? `Co dnes vytvoříme, ${userData.name}?` 
+      : `What shall we create today, ${userData.name}?`;
+
+    const titleMap = { dashboard: "tabDash", generator: "tabGen", projects: "tabProj", pricing: "tabPlans", settings: "tabSet" };
+    if(titleMap[activeTab] && dict[currentLang][titleMap[activeTab]]) {
+        document.getElementById("pageTitle").textContent = dict[currentLang][titleMap[activeTab]];
+    }
+
+    document.getElementById("langCs").className = currentLang === "cs" ? "rounded-md bg-white px-2 py-1 text-xs font-bold text-slate-900 transition" : "rounded-md px-2 py-1 text-xs font-bold text-slate-400 transition hover:text-white";
+    document.getElementById("langEn").className = currentLang === "en" ? "rounded-md bg-white px-2 py-1 text-xs font-bold text-slate-900 transition" : "rounded-md px-2 py-1 text-xs font-bold text-slate-400 transition hover:text-white";
+
+    // TADY JE TEN TVŮJ DOTAZ: SEM PATŘÍ PŘEKLAD ODHLÁŠENÍ!
+    const authBtn = document.getElementById("authActionButton");
+    if (authBtn) {
+        if (window.currentUserUid) {
+            authBtn.textContent = dict[currentLang].logoutBtn || "Odhlásit se";
+        } else {
+            authBtn.textContent = dict[currentLang].loginBtn || "Přihlásit se";
+        }
+    }
+  }
+
+  // Přepínání tabů
+  function switchTab(tabName) {
+    activeTab = tabName;
+    document.querySelectorAll("[data-page-content]").forEach(p => p.classList.add("hidden"));
+    const targetPage = document.querySelector(`[data-page-content="${tabName}"]`);
+    if(targetPage) targetPage.classList.remove("hidden");
+    
+    document.querySelectorAll(".menu-btn").forEach(btn => {
+      if (btn.dataset.page === tabName) {
+        btn.className = "menu-btn w-full rounded-lg px-3 py-2 text-left transition bg-panelSoft font-semibold text-white ring-1 ring-borderSoft";
+      } else {
+        btn.className = "menu-btn w-full rounded-lg px-3 py-2 text-left text-textSoft transition hover:bg-panelSoft hover:text-white";
+      }
+    });
+    updateUI();
+  }
+
+  // Naslouchače jazyka
+  document.getElementById("langCs").addEventListener("click", () => { currentLang = "cs"; updateUI(); });
+  document.getElementById("langEn").addEventListener("click", () => { currentLang = "en"; updateUI(); });
+
+  // Menu naslouchače
+  document.querySelectorAll(".menu-btn").forEach(btn => {
+    btn.addEventListener("click", () => switchTab(btn.dataset.page));
+  });
+
+  const btnNewProject = document.getElementById("btnNewProject");
+  if(btnNewProject) {
+    btnNewProject.addEventListener("click", () => switchTab('generator'));
+  }
+
+  // Stripe integrace
+  const STRIPE_PUBLIC_KEY = "pk_test_51TQXFSJgsDD0uoUZ1uXl9SdWe6m87ncP0VBeSCUKvBy3jOGaOw8vKV8Sae4JXWZL73gNydFVIwUNl4azEy7paffV00nCvuKAtK";
+  const stripe = window.Stripe ? Stripe(STRIPE_PUBLIC_KEY) : null;
+  const STRIPE_PRICE_ID_BASIC = "price_1TQXLkJgsDD0uoUZ2ivFsXPq";
+  const STRIPE_PRICE_ID_PRO = "price_1TQXNaJgsDD0uoUZUJzYseGv";
+
+  async function startStripeCheckout(plan) {
+    const planConfig = {
+      basic: { priceId: STRIPE_PRICE_ID_BASIC, planName: "Basic" },
+      pro: { priceId: STRIPE_PRICE_ID_PRO, planName: "Pro" }
+    };
+    const selectedPlan = planConfig[plan];
+
+    if (!selectedPlan || !stripe) { alert("Chyba platební brány."); return; }
+
+    try {
+      const response = await fetch("/.netlify/functions/create-checkout-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan: selectedPlan.planName, priceId: selectedPlan.priceId })
+      });
+      if (!response.ok) throw new Error("Chyba při vytváření relace platby.");
+      const data = await response.json();
+      const result = await stripe.redirectToCheckout({ sessionId: data.sessionId });
+      if (result.error) alert(result.error.message);
+    } catch (error) {
+      console.error("Stripe checkout error:", error);
+      alert("Platbu se nepodařilo spustit.");
+    }
+  }
+
+  const btnBasic = document.getElementById("btnUpgradeBasic");
+  const btnPro = document.getElementById("btnUpgradePro");
+  if(btnBasic) btnBasic.addEventListener("click", () => startStripeCheckout("basic"));
+  if(btnPro) btnPro.addEventListener("click", () => startStripeCheckout("pro"));
+
+  // Start up
+  updateUI();
+</script>
+
+    <script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+  import { getFirestore, doc, onSnapshot, setDoc, deleteDoc, updateDoc, collection, addDoc, query, where, getDocs, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+  import { getAuth, onAuthStateChanged, signOut, sendPasswordResetEmail, deleteUser } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCnWQvt7pnZ-Ta9zuM7PJaVWzBtn4xJNKU",
+    authDomain: "plumascript-4a494.firebaseapp.com",
+    projectId: "plumascript-4a494",
+    storageBucket: "plumascript-4a494.firebasestorage.app",
+    messagingSenderId: "679308972322",
+    appId: "1:679308972322:web:89ad6d8f9814e18579157b"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+  
+  window.fbSignOut = signOut; 
+  window.auth = auth;
+  window.db = db;
+  window.fbDoc = doc;
+  window.fbSetDoc = setDoc; 
+  window.fbUpdateDoc = updateDoc;
+  window.fbDeleteDoc = deleteDoc; 
+  window.fbCollection = collection;
+  window.fbAddDoc = addDoc;
+  window.fbQuery = query;
+  window.fbWhere = where;
+  window.fbGetDocs = getDocs;
+
+  // JEDINÁ A OPRAVENÁ FUNKCE PRO SMAZÁNÍ SCÉNÁŘE
+  window.deleteProject = async (id, event) => {
+    if (event) event.stopPropagation(); // Zabrání otevření scénáře při kliknutí na křížek
+    
+    const confirmMsg = dict[currentLang].confirmDelProj || "Opravdu to chceš smazat?";
     if (!confirm(confirmMsg)) return;
 
     try {
-        // Cesta k dokumentu: databáze -> kolekce "scripts" -> konkrétní ID
         const docRef = window.fbDoc(window.db, "scripts", id);
         await window.fbDeleteDoc(docRef);
-        
         console.log("Smazáno z Firebase:", id);
         
-        // Znovu načteme seznam, aby projekt zmizel z obrazovky
+        // Znovu načteme seznam
         if (typeof window.loadMyScripts === "function") {
             window.loadMyScripts();
         }
@@ -486,512 +740,217 @@ let userData = {
         console.error("Chyba při mazání:", e);
         alert("Nepodařilo se smazat projekt. Zkontroluj práva v Firebase.");
     }
-};
+  };
 
-      // Formátování textu z AI
-      function formatAIResponse(text) {
-        return text
-          .replace(/\*\*(.*?)\*\*/g, '<strong class="text-white">$1</strong>')
-          .replace(/===\s*(.*?)\s*===/g, '<h4 class="text-accent text-lg font-bold mt-6 mb-2">$1</h4>')
-          .replace(/---/g, '<hr class="border-borderSoft my-6">');
-      }
+  // FUNKCE PRO NAČÍTÁNÍ SCÉNÁŘŮ PŘÍMO Z FIREBASE
+  window.loadMyScripts = async function() {
+    if (!window.currentUserUid) return;
+    
+    const container = document.getElementById("projectsContainer");
+    if (!container) return;
+    
+    container.innerHTML = '<p class="text-textSoft animate-pulse">Načítám vaše scénáře...</p>';
 
-      // TLAČÍTKO GENERATE: Zpracování, Firebase zápis a odečet kreditů
-      document.getElementById("btnGenerate").addEventListener("click", async () => {
-        // Kontrola kreditů (pokud není admin)
-        if (!window.isAdmin && userData.remainingGens <= 0) {
-          alert(dict[currentLang].alertNoCredits);
-          switchTab('pricing');
-          return; 
-        }
-
-        const topic = document.getElementById("aiTopic").value;
-        const platform = document.getElementById("aiPlatform").value;
-        const tone = document.getElementById("aiTone").value;
-        const length = document.getElementById("aiLength").value;
-        const purpose = document.getElementById("aiPurpose").value;
-
-        if (!topic.trim()) {
-          alert(currentLang === 'cs' ? "Prosím, zadejte o čem by video mělo být." : "Please enter a video topic.");
-          return;
-        }
-
-        document.getElementById('aiLoading').classList.remove('hidden');
-        const btnGenerate = document.getElementById("btnGenerate");
-        btnGenerate.disabled = true;
-        btnGenerate.innerHTML = currentLang === 'cs' 
-          ? '<i class="fas fa-spinner fa-spin mr-2"></i> ⏳Generuji scénář...' 
-          : '<i class="fas fa-spinner fa-spin mr-2"></i> ⏳Generating script...'; 
-
-        try {
-          // Volání backendu
-          const response = await fetch("/api/generate-script", {
-            method: "POST",
-            body: JSON.stringify({ topic, platform, tone, length, purpose })
-          });
-          const result = await response.json();
-
-          if (response.ok) {
-            const aiText = result.script;
-
-            // Kontrola odmítnutí od AI
-            if (aiText.includes("Zadané téma je příliš obecné") || aiText.includes("Omlouvám se, ale pro toto téma")) {
-              document.getElementById("aiResultBox").classList.remove("hidden");
-              document.getElementById("aiResultText").innerHTML = `<span class="text-red-400 font-bold">${aiText}</span>`;
-            } else {
-              // Zobrazení scénáře
-              document.getElementById("aiResultBox").classList.remove("hidden");
-              document.getElementById("aiResultText").innerHTML = formatAIResponse(aiText);
-
-              // Odečet kreditů ve Firebase
-              try {
-                if (!window.isAdmin) {
-                  userData.remainingGens--;
-                  const userRef = window.fbDoc(window.db, "users", window.currentUserUid);
-                  await window.fbUpdateDoc(userRef, {
-                    credits: userData.remainingGens,
-                    plan: userData.planName.toLowerCase(), 
-                    isAdmin: window.isAdmin
-                  });
-                }
-                userData.totalScripts++;
-                if (typeof injectUserData === "function") injectUserData(); 
-              } catch (e) {
-                console.error("Nepodařilo se odečíst kredity:", e);
-              }
-
-              // Uložení scénáře do Firebase
-              try {
-                if (window.currentUserUid) {
-                  await window.fbAddDoc(window.fbCollection(window.db, "scripts"), {
-                    userId: window.currentUserUid,
-                    topic: topic,
-                    platform: platform,
-                    content: aiText,
-                    createdAt: new Date()
-                  });
-                  // Ihned načteme aktualizovaný seznam
-                  if (typeof loadMyScripts === "function") window.loadMyScripts();
-                }
-              } catch (e) {
-                console.error("Chyba při ukládání scénáře:", e);
-              }
-            }
-          } else {
-            alert("Chyba AI: " + (result.error || "Unknown error"));
-          }
-        } catch (err) {
-          console.error(err);
-          alert(currentLang === "cs" ? "Chyba sítě nebo serveru." : "Network or server error.");
-        } finally {
-          document.getElementById('aiLoading').classList.add('hidden');
-          btnGenerate.disabled = false;
-          btnGenerate.innerHTML = currentLang === "cs" 
-            ? '<i class="fas fa-magic mr-2"></i> Generovat scénář' 
-            : '<i class="fas fa-magic mr-2"></i> Generate script';
-        }
-      });
-
-      // Zobrazení uživatelských dat
-      function injectUserData() {
-        document.getElementById("dashTotalScripts").textContent = userData.totalScripts || 0;
-        document.getElementById("dashRemainingGens").textContent = userData.remainingGens || 0;
-        
-        document.getElementById("sidebarName").textContent = userData.name || "Uživatel";
-        document.getElementById("sidebarGens").textContent = userData.remainingGens || 0;
-        document.getElementById("sidebarMaxGens").textContent = userData.maxGens || 10;
-        
-        const percent = userData.maxGens === "∞" ? 100 : (userData.remainingGens / userData.maxGens) * 100;
-        document.getElementById("sidebarProgressBar").style.width = `${percent}%`;
-
-        if(document.getElementById("setAccName")) {
-          document.getElementById("setAccName").textContent = userData.name;
-          document.getElementById("setAccEmail").textContent = userData.email;
-          document.getElementById("setAccPlan").textContent = userData.planName;
-        }
-      }
-
-      // Aktualizace textů podle jazyka
-      function updateUI() {
-        document.querySelectorAll("[data-i18n]").forEach(el => {
-          const key = el.getAttribute("data-i18n");
-          if (dict[currentLang][key]) el.textContent = dict[currentLang][key];
-        });
-
-        document.querySelectorAll("[data-i18n-placeholder]").forEach(el => {
-          const key = el.getAttribute("data-i18n-placeholder");
-          if (dict[currentLang][key]) el.placeholder = dict[currentLang][key];
-        });
-        
-        document.getElementById("dashGreeting").textContent = currentLang === "cs" 
-          ? `Co dnes vytvoříme, ${userData.name}?` 
-          : `What shall we create today, ${userData.name}?`;
-
-        const titleMap = { dashboard: "tabDash", generator: "tabGen", projects: "tabProj", pricing: "tabPlans", settings: "tabSet" };
-        if(titleMap[activeTab] && dict[currentLang][titleMap[activeTab]]) {
-            document.getElementById("pageTitle").textContent = dict[currentLang][titleMap[activeTab]];
-        }
-
-        document.getElementById("langCs").className = currentLang === "cs" ? "rounded-md bg-white px-2 py-1 text-xs font-bold text-slate-900 transition" : "rounded-md px-2 py-1 text-xs font-bold text-slate-400 transition hover:text-white";
-        document.getElementById("langEn").className = currentLang === "en" ? "rounded-md bg-white px-2 py-1 text-xs font-bold text-slate-900 transition" : "rounded-md px-2 py-1 text-xs font-bold text-slate-400 transition hover:text-white";
-      }
-
-      // Přepínání tabů
-      function switchTab(tabName) {
-        activeTab = tabName;
-        document.querySelectorAll("[data-page-content]").forEach(p => p.classList.add("hidden"));
-        const targetPage = document.querySelector(`[data-page-content="${tabName}"]`);
-        if(targetPage) targetPage.classList.remove("hidden");
-        
-        document.querySelectorAll(".menu-btn").forEach(btn => {
-          if (btn.dataset.page === tabName) {
-            btn.className = "menu-btn w-full rounded-lg px-3 py-2 text-left transition bg-panelSoft font-semibold text-white ring-1 ring-borderSoft";
-          } else {
-            btn.className = "menu-btn w-full rounded-lg px-3 py-2 text-left text-textSoft transition hover:bg-panelSoft hover:text-white";
-          }
-        });
-        updateUI();
-      }
-
-      // Naslouchače jazyka
-      document.getElementById("langCs").addEventListener("click", () => { currentLang = "cs"; updateUI(); });
-      document.getElementById("langEn").addEventListener("click", () => { currentLang = "en"; updateUI(); });
-
-      // Menu naslouchače
-      document.querySelectorAll(".menu-btn").forEach(btn => {
-        btn.addEventListener("click", () => switchTab(btn.dataset.page));
-      });
-
-      // Tlačítko pro nový projekt pouze přepne na generátor
-      const btnNewProject = document.getElementById("btnNewProject");
-      if(btnNewProject) {
-        btnNewProject.addEventListener("click", () => switchTab('generator'));
-      }
-
-      // Stripe integrace
-      const STRIPE_PUBLIC_KEY = "pk_test_51TQXFSJgsDD0uoUZ1uXl9SdWe6m87ncP0VBeSCUKvBy3jOGaOw8vKV8Sae4JXWZL73gNydFVIwUNl4azEy7paffV00nCvuKAtK";
-      const stripe = window.Stripe ? Stripe(STRIPE_PUBLIC_KEY) : null;
-      const STRIPE_PRICE_ID_BASIC = "price_1TQXLkJgsDD0uoUZ2ivFsXPq";
-      const STRIPE_PRICE_ID_PRO = "price_1TQXNaJgsDD0uoUZUJzYseGv";
-
-      async function startStripeCheckout(plan) {
-        const planConfig = {
-          basic: { priceId: STRIPE_PRICE_ID_BASIC, planName: "Basic" },
-          pro: { priceId: STRIPE_PRICE_ID_PRO, planName: "Pro" }
-        };
-        const selectedPlan = planConfig[plan];
-
-        if (!selectedPlan || !stripe) { alert("Chyba platební brány."); return; }
-
-        try {
-          const response = await fetch("/.netlify/functions/create-checkout-session", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ plan: selectedPlan.planName, priceId: selectedPlan.priceId })
-          });
-          if (!response.ok) throw new Error("Chyba při vytváření relace platby.");
-          const data = await response.json();
-          const result = await stripe.redirectToCheckout({ sessionId: data.sessionId });
-          if (result.error) alert(result.error.message);
-        } catch (error) {
-          console.error("Stripe checkout error:", error);
-          alert("Platbu se nepodařilo spustit.");
-        }
-      }
-
-      const btnBasic = document.getElementById("btnUpgradeBasic");
-      const btnPro = document.getElementById("btnUpgradePro");
-      if(btnBasic) btnBasic.addEventListener("click", () => startStripeCheckout("basic"));
-      if(btnPro) btnPro.addEventListener("click", () => startStripeCheckout("pro"));
-
-      // Funkce pro smazání projektu/scénáře
-      window.deleteProject = async (id, event) => {
-        event.stopPropagation(); // Zabraní prokliknutí do detailu, když klikáš jen na křížek
-        
-        if (confirm(dict[currentLang].confirmDelProj || "Opravdu to chceš smazat?")) {
-          try {
-            // Smazání přímo z Firebase
-            await window.fbDeleteDoc(window.fbDoc(window.db, "scripts", id));
-            
-            // Okamžité překreslení seznamu, aby to hned zmizelo z obrazovky
-            if (typeof window.loadMyScripts === "function") {
-               window.loadMyScripts();
-            }
-          } catch (e) {
-            console.error("Chyba při mazání:", e);
-          }
-        }
-      };
-
-      // Start up
-      updateUI();
-    </script>
-
-    <script type="module">
-      import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-      import { getFirestore, doc, onSnapshot, setDoc, deleteDoc, updateDoc, collection, addDoc, query, where, getDocs, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-      import { getAuth, onAuthStateChanged, signOut, sendPasswordResetEmail, deleteUser } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-
-      const firebaseConfig = {
-        apiKey: "AIzaSyCnWQvt7pnZ-Ta9zuM7PJaVWzBtn4xJNKU",
-        authDomain: "plumascript-4a494.firebaseapp.com",
-        projectId: "plumascript-4a494",
-        storageBucket: "plumascript-4a494.firebasestorage.app",
-        messagingSenderId: "679308972322",
-        appId: "1:679308972322:web:89ad6d8f9814e18579157b"
-      };
-
-      const app = initializeApp(firebaseConfig);
-      const auth = getAuth(app);
-      const db = getFirestore(app);
-      
-      window.fbSignOut = signOut; // Mapování originální Firebase funkce do window
-      window.auth = auth;
-      window.db = db;
-      window.fbDoc = doc;
-      window.fbSetDoc = setDoc; 
-      window.fbUpdateDoc = updateDoc;
-      window.fbDeleteDoc = deleteDoc; // Přidáno pro mazání
-      window.fbCollection = collection;
-      window.fbAddDoc = addDoc;
-      window.fbQuery = query;
-      window.fbWhere = where;
-      window.fbGetDocs = getDocs;
-
-      // FUNKCE PRO SMAZÁNÍ SCÉNÁŘE Z FIREBASE
-      window.deleteScript = async (docId, event) => {
-        event.stopPropagation(); // Zabrání otevření scénáře při kliknutí na křížek
-        if (confirm(currentLang === 'cs' ? "Opravdu smazat tento scénář?" : "Delete this script permanently?")) {
-            try {
-                await deleteDoc(doc(db, "scripts", docId));
-                window.loadMyScripts(); // Obnoví seznam
-            } catch (e) {
-                console.error("Chyba při mazání:", e);
-            }
-        }
-      };
-
-      // FUNKCE PRO NAČÍTÁNÍ SCÉNÁŘŮ PŘÍMO Z FIREBASE
-      window.loadMyScripts = async function() {
-        if (!window.currentUserUid) return;
-        
-        const container = document.getElementById("projectsContainer");
-        if (!container) return;
-        
-        container.innerHTML = '<p class="text-textSoft animate-pulse">Načítám vaše scénáře...</p>';
-
-        try {
-          const q = window.fbQuery(
-            window.fbCollection(window.db, "scripts"),
-            window.fbWhere("userId", "==", window.currentUserUid)
-          );
-
-          const querySnapshot = await window.fbGetDocs(q);
-          container.innerHTML = ""; 
-
-          if (querySnapshot.empty) {
-            container.innerHTML = '<p class="text-textSoft">Zatím zde nemáte žádné uložené scénáře.</p>';
-            document.getElementById("dashActiveProjects").textContent = "0";
-            return;
-          }
-
-          let count = 0;
-          querySnapshot.forEach((docSnap) => {
-            count++;
-            const data = docSnap.data();
-            const docId = docSnap.id;
-            const date = data.createdAt && data.createdAt.toDate ? data.createdAt.toDate().toLocaleDateString('cs-CZ') : "Nedávno";
-            
-            const card = document.createElement("div");
-            card.className = "p-5 bg-panelSoft rounded-2xl border border-borderSoft hover:border-accent transition-all cursor-pointer group relative";
-            
-            // Karta scénáře s tlačítkem na smazání (červený křížek)
-            card.innerHTML = `
-              <div class="flex justify-between items-start mb-3">
-                <span class="px-2 py-1 bg-accent/10 text-accent text-[10px] font-bold rounded uppercase tracking-wider">${data.platform || 'Obecné'}</span>
-                <span class="text-[10px] text-textSoft">${date}</span>
-                <button onclick="window.deleteProject('${doc.id}', event)" class="text-sm text-red-500 hover:text-red-700 font-bold ml-4">
-                <i class="fas fa-trash mr-2"></i> 
-                ${dict[currentLang].btnDelProj} 
-               </button>
-              </div>
-              <h3 class="text-white font-bold group-hover:text-accent transition-colors truncate mb-2 pr-6">${data.topic}</h3>
-              <p class="text-textSoft text-xs line-clamp-3 leading-relaxed">${(data.content || '').replace(/<[^>]*>/g, '').substring(0, 150)}...</p>
-              
-              <button onclick="window.deleteProject('${docId}', event)" class="absolute top-4 right-4 text-red-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                 <i class="fas fa-trash"></i>
-              </button>
-            `;
-
-            // Otevření scénáře
-            card.onclick = () => {
-              if (typeof switchTab === 'function') switchTab('generator'); 
-              document.getElementById("aiResultBox").classList.remove("hidden");
-              if (typeof formatAIResponse === 'function') {
-                document.getElementById("aiResultText").innerHTML = formatAIResponse(data.content);
-              } else {
-                 document.getElementById("aiResultText").innerText = data.content;
-              }
-              document.getElementById("aiResultBox").scrollIntoView({ behavior: 'smooth' });
-            };
-
-            container.appendChild(card);
-          });
-          
-          document.getElementById("dashActiveProjects").textContent = count;
-          
-        } catch (e) {
-          console.error("Chyba při načítání projektů:", e);
-          container.innerHTML = '<p class="text-red-400">Nepodařilo se načíst projekty. Zkontrolujte připojení databáze.</p>';
-        }
-      };
-
-      // HLAVNÍ LOGIKA PŘIHLÁŠENÍ A UŽIVATELE
-      onAuthStateChanged(auth, async (user) => {
-        const authBtn = document.getElementById("authActionButton");
-
-        if (authBtn) {
-  if (user) {
-    // Když JE přihlášen
-    authBtn.removeAttribute("data-i18n"); // TOTO JE TEN MAGIC FIX
-    authBtn.textContent = dict[currentLang].logoutBtn || "Odhlásit se";
-    authBtn.onclick = async () => {
     try {
-        await window.fbSignOut(window.auth);
-        console.log("Odhlášeno");
-        window.location.href = "login.html"; // Natvrdo přesměrujeme po odhlášení
-    } catch (error) {
-        console.error("Chyba při odhlašování:", error);
+      const q = window.fbQuery(
+        window.fbCollection(window.db, "scripts"),
+        window.fbWhere("userId", "==", window.currentUserUid)
+      );
+
+      const querySnapshot = await window.fbGetDocs(q);
+      container.innerHTML = ""; 
+
+      if (querySnapshot.empty) {
+        container.innerHTML = '<p class="text-textSoft">Zatím zde nemáte žádné uložené scénáře.</p>';
+        document.getElementById("dashActiveProjects").textContent = "0";
+        return;
+      }
+
+      let count = 0;
+      querySnapshot.forEach((docSnap) => {
+        count++;
+        const data = docSnap.data();
+        const docId = docSnap.id;
+        const date = data.createdAt && data.createdAt.toDate ? data.createdAt.toDate().toLocaleDateString('cs-CZ') : "Nedávno";
+        
+        const card = document.createElement("div");
+        card.className = "p-5 bg-panelSoft rounded-2xl border border-borderSoft hover:border-accent transition-all cursor-pointer group relative";
+        
+        // Karta scénáře s tlačítkem na smazání (červený křížek)
+        card.innerHTML = `
+          <div class="flex justify-between items-start mb-3">
+            <span class="px-2 py-1 bg-accent/10 text-accent text-[10px] font-bold rounded uppercase tracking-wider">${data.platform || 'Obecné'}</span>
+            <span class="text-[10px] text-textSoft">${date}</span>
+          </div>
+          <h3 class="text-white font-bold group-hover:text-accent transition-colors truncate mb-2 pr-10">${data.topic}</h3>
+          <p class="text-textSoft text-xs line-clamp-3 leading-relaxed">${(data.content || '').replace(/<[^>]*>/g, '').substring(0, 150)}...</p>
+          <button onclick="window.deleteProject('${docId}', event)" class="absolute top-4 right-4 text-red-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity p-2" title="Smazat">
+             <i class="fas fa-trash"></i>
+          </button>
+        `;
+
+        // Otevření scénáře
+        card.onclick = () => {
+          if (typeof switchTab === 'function') switchTab('generator'); 
+          document.getElementById("aiResultBox").classList.remove("hidden");
+          if (typeof formatAIResponse === 'function') {
+            document.getElementById("aiResultText").innerHTML = formatAIResponse(data.content);
+          } else {
+             document.getElementById("aiResultText").innerText = data.content;
+          }
+          document.getElementById("aiResultBox").scrollIntoView({ behavior: 'smooth' });
+        };
+
+        container.appendChild(card);
+      });
+      
+      document.getElementById("dashActiveProjects").textContent = count;
+      
+    } catch (e) {
+      console.error("Chyba při načítání projektů:", e);
+      container.innerHTML = '<p class="text-red-400">Nepodařilo se načíst projekty. Zkontrolujte připojení databáze.</p>';
     }
-};
-  } else {
-    // Když NENÍ přihlášen
-    authBtn.textContent = dict[currentLang].loginBtn || "Přihlásit se";
-    // Tady případně vrať původní onclick pro otevření přihlašovacího okna
-  }
-}
+  };
 
-        if (user) {
-            window.currentUserUid = user.uid;
-            userData.email = user.email;
-            userData.name = user.displayName || user.email.split('@')[0];
+  // HLAVNÍ LOGIKA PŘIHLÁŠENÍ A UŽIVATELE
+  onAuthStateChanged(auth, async (user) => {
+    const authBtn = document.getElementById("authActionButton");
 
-            if (user.email === "tomas.kral345@gmail.com") {
-                window.isAdmin = true; 
-                userData.planName = "Admin";
-                userData.maxGens = "∞";
-                userData.remainingGens = "∞";
-                userData.name = "Tomas (Admin)";
-                if (typeof injectUserData === 'function') injectUserData();
-                window.loadMyScripts();
-            } else {
-                window.isAdmin = false;
-                const userDocRef = window.fbDoc(window.db, "users", user.uid);
-                
-                onSnapshot(userDocRef, async (docSnap) => {
-                    if (docSnap.exists()) {
-                        const data = docSnap.data();
-                        userData.remainingGens = data.credits;
-                        
-                        if (data.isPro || data.plan === "pro") {
-                            userData.planName = "Pro";
-                            userData.maxGens = 500;
-                        } else if (data.plan === "basic" || data.credits > 10) {
-                            userData.planName = "Basic";
-                            userData.maxGens = 50;
-                        } else {
-                            userData.planName = "Free";
-                            userData.maxGens = 10;
-                        }
-                    } else {
-                        console.log("Vytvářím chybějící profil v databázi...");
-                        try {
-                            await window.fbSetDoc(userDocRef, {
-                                name: userData.name,
-                                email: userData.email,
-                                credits: 10,
-                                plan: "free",
-                                isAdmin: false,
-                                createdAt: new Date()
-                            });
-                            userData.remainingGens = 10;
-                            userData.planName = "Free";
-                            userData.maxGens = 10;
-                        } catch (err) {
-                            console.error("Nepodařilo se vytvořit chybějící profil:", err);
-                        }
-                    }
-                    if (typeof injectUserData === 'function') injectUserData(); 
-                });
-                window.loadMyScripts();
-            }
-        } else {
-            if (authBtn) {
-                authBtn.removeAttribute("data-i18n");
-                authBtn.textContent = typeof currentLang !== 'undefined' && currentLang === 'cs' ? "Přihlásit se" : "Log in";
-                authBtn.onclick = () => { window.location.href = "login.html"; };
-            }
-            window.location.href = "login.html"; 
-        }
-      });
-
-      // ZMĚNA HESLA A SMAZÁNÍ ÚČTU
-      const btnChangePass = document.getElementById("btnChangePass");
-      if(btnChangePass) {
-        btnChangePass.onclick = () => {
-          if(!window.auth.currentUser) return;
-          sendPasswordResetEmail(auth, window.auth.currentUser.email).then(() => {
-            alert(currentLang === 'cs' ? "Odkaz odeslán na e-mail." : "Link sent to email.");
-          });
-        };
-      }
-
-      const btnDeleteAcc = document.getElementById("btnDeleteAcc");
-      if (btnDeleteAcc) {
-        btnDeleteAcc.onclick = async () => {
-          const msg = currentLang === 'cs' ? "Opravdu smazat účet?" : "Really delete account?";
-          if (!confirm(msg) || !window.auth.currentUser) return;
-
+    if (authBtn) {
+      if (user) {
+        authBtn.removeAttribute("data-i18n"); 
+        authBtn.textContent = dict[currentLang].logoutBtn || "Odhlásit se";
+        authBtn.onclick = async () => {
           try {
-            await deleteDoc(doc(db, "users", window.currentUserUid));
-            await deleteUser(window.auth.currentUser);
-            window.location.href = "login.html";
+              await window.fbSignOut(window.auth);
+              console.log("Odhlášeno");
+              window.location.href = "login.html"; // Natvrdo přesměrujeme po odhlášení
           } catch (error) {
-            console.error(error);
-            if (error?.code === "auth/requires-recent-login") {
-              alert(currentLang === 'cs' ? "Před smazáním se musíte znovu přihlásit." : "Please re-login before deleting.");
-              await signOut(auth);
-              window.location.href = "login.html";
-            }
+              console.error("Chyba při odhlašování:", error);
           }
         };
+      } else {
+        authBtn.textContent = dict[currentLang].loginBtn || "Přihlásit se";
+        authBtn.onclick = () => { window.location.href = "login.html"; };
       }
+    }
 
-      // KOPÍROVÁNÍ TEXTU
-      document.addEventListener("click", async (e) => {
-          const copyBtn = e.target.closest("#btnCopy");
-          if (!copyBtn) return;
+    if (user) {
+        window.currentUserUid = user.uid;
+        userData.email = user.email;
+        userData.name = user.displayName || user.email.split('@')[0];
 
-          const resultBox = document.getElementById("aiResultText");
-          if (!resultBox) return;
-          
-          const textToCopy = resultBox.innerText;
-          if (!textToCopy || textToCopy.includes("Zde se objeví")) return;
-          
-          try {
-              await navigator.clipboard.writeText(textToCopy);
-              const originalHTML = copyBtn.innerHTML;
-              copyBtn.innerHTML = (typeof currentLang !== 'undefined' && currentLang === 'cs') ? '✅ Zkopírováno!' : '✅ Copied!';
-              copyBtn.classList.replace("bg-panelSoft", "bg-green-500");
-              copyBtn.classList.replace("text-textSoft", "text-white");
-              
-              setTimeout(() => {
-                  copyBtn.innerHTML = originalHTML;
-                  copyBtn.classList.replace("bg-green-500", "bg-panelSoft");
-                  copyBtn.classList.replace("text-white", "text-textSoft");
-              }, 2000);
-          } catch (err) {
-              console.error("Kopírování selhalo:", err);
-          }
+        if (user.email === "tomas.kral345@gmail.com") {
+            window.isAdmin = true; 
+            userData.planName = "Admin";
+            userData.maxGens = "∞";
+            userData.remainingGens = "∞";
+            userData.name = "Tomas (Admin)";
+            if (typeof injectUserData === 'function') injectUserData();
+            window.loadMyScripts();
+        } else {
+            window.isAdmin = false;
+            const userDocRef = window.fbDoc(window.db, "users", user.uid);
+            
+            onSnapshot(userDocRef, async (docSnap) => {
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    userData.remainingGens = data.credits;
+                    
+                    if (data.isPro || data.plan === "pro") {
+                        userData.planName = "Pro";
+                        userData.maxGens = 500;
+                    } else if (data.plan === "basic" || data.credits > 10) {
+                        userData.planName = "Basic";
+                        userData.maxGens = 50;
+                    } else {
+                        userData.planName = "Free";
+                        userData.maxGens = 10;
+                    }
+                } else {
+                    console.log("Vytvářím chybějící profil v databázi...");
+                    try {
+                        await window.fbSetDoc(userDocRef, {
+                            name: userData.name,
+                            email: userData.email,
+                            credits: 10,
+                            plan: "free",
+                            isAdmin: false,
+                            createdAt: new Date()
+                        });
+                        userData.remainingGens = 10;
+                        userData.planName = "Free";
+                        userData.maxGens = 10;
+                    } catch (err) {
+                        console.error("Nepodařilo se vytvořit chybějící profil:", err);
+                    }
+                }
+                if (typeof injectUserData === 'function') injectUserData(); 
+            });
+            window.loadMyScripts();
+        }
+    } else {
+        window.location.href = "login.html"; 
+    }
+  });
+
+  // ZMĚNA HESLA A SMAZÁNÍ ÚČTU
+  const btnChangePass = document.getElementById("btnChangePass");
+  if(btnChangePass) {
+    btnChangePass.onclick = () => {
+      if(!window.auth.currentUser) return;
+      sendPasswordResetEmail(auth, window.auth.currentUser.email).then(() => {
+        alert(currentLang === 'cs' ? "Odkaz odeslán na e-mail." : "Link sent to email.");
       });
-    </script>
+    };
+  }
+
+  const btnDeleteAcc = document.getElementById("btnDeleteAcc");
+  if (btnDeleteAcc) {
+    btnDeleteAcc.onclick = async () => {
+      const msg = currentLang === 'cs' ? "Opravdu smazat účet?" : "Really delete account?";
+      if (!confirm(msg) || !window.auth.currentUser) return;
+
+      try {
+        await deleteDoc(doc(db, "users", window.currentUserUid));
+        await deleteUser(window.auth.currentUser);
+        window.location.href = "login.html";
+      } catch (error) {
+        console.error(error);
+        if (error?.code === "auth/requires-recent-login") {
+          alert(currentLang === 'cs' ? "Před smazáním se musíte znovu přihlásit." : "Please re-login before deleting.");
+          await signOut(auth);
+          window.location.href = "login.html";
+        }
+      }
+    };
+  }
+
+  // KOPÍROVÁNÍ TEXTU
+  document.addEventListener("click", async (e) => {
+      const copyBtn = e.target.closest("#btnCopy");
+      if (!copyBtn) return;
+
+      const resultBox = document.getElementById("aiResultText");
+      if (!resultBox) return;
+      
+      const textToCopy = resultBox.innerText;
+      if (!textToCopy || textToCopy.includes("Zde se objeví")) return;
+      
+      try {
+          await navigator.clipboard.writeText(textToCopy);
+          const originalHTML = copyBtn.innerHTML;
+          copyBtn.innerHTML = (typeof currentLang !== 'undefined' && currentLang === 'cs') ? '✅ Zkopírováno!' : '✅ Copied!';
+          copyBtn.classList.replace("bg-panelSoft", "bg-green-500");
+          copyBtn.classList.replace("text-textSoft", "text-white");
+          
+          setTimeout(() => {
+              copyBtn.innerHTML = originalHTML;
+              copyBtn.classList.replace("bg-green-500", "bg-panelSoft");
+              copyBtn.classList.replace("text-white", "text-textSoft");
+          }, 2000);
+      } catch (err) {
+          console.error("Kopírování selhalo:", err);
+      }
+  });
+</script>
