@@ -784,9 +784,9 @@ let userData = {
           </div>
           <h3 class="text-white font-bold group-hover:text-accent transition-colors truncate mb-2 pr-10">${data.topic}</h3>
           <p class="text-textSoft text-xs line-clamp-3 leading-relaxed">${(data.content || '').replace(/<[^>]*>/g, '').substring(0, 150)}...</p>
-          <button onclick="window.deleteProject('${docId}', event)" class="absolute top-4 right-4 text-red-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity p-2" title="Smazat">
-             <i class="fas fa-trash"></i>
-          </button>
+          <button onclick="window.deleteProject('${docId}', event)" class="absolute top-4 right-4 text-red-500 hover:text-red-700 transition-colors p-2" title="Smazat">
+   <i class="fas fa-trash"></i>
+</button>
         `;
 
         // Otevření scénáře
