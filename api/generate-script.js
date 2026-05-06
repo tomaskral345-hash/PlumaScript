@@ -28,51 +28,57 @@ PRAVIDLA PRO DÉLKU:
 Pečlivě sleduj zadanou délku a PŘÍSNĚ dodržuj tento počet slov v mluveném textu pro KAŽDOU variantu:
 - Kratší než 30 vteřin: 60-80 slov.
 - 30–60 vteřin: 130-150 slov.
-- 1–2 minuty: MINIMÁLNĚ 250 až 300 slov! (Téma rozeber do hloubky. Uveď konkrétní příklady, kroky nebo krátký příběh (storytelling). Text musí mít cca 200–250 slov, aby přirozeně vyplnil čas, ale nepůsobil uměle nataženě.)
+- 1–2 minuty: MINIMÁLNĚ 250 až 300 slov! (Téma rozeber do hloubky. Uveď konkrétní příklady, kroky nebo krátký příběh. Text musí mít reálný objem, aby nepůsobil uměle nataženě.)
 
 BEZPEČNOST A OMEZENÍ:
 - Nesmysl / politika / extrémismus -> Napiš POUZE: "Omlouvám se, ale pro toto téma nemohu vygenerovat scénář."
 - Téma má jen 1 slovo (např. "hubnutí") -> Napiš POUZE: "Zadané téma je příliš obecné. Zkuste ho rozepsat do věty."
-- V mluveném textu NEPOUŽÍVEJ ŽÁDNÁ EMOJI (nepatří do dynamických titulků).
-- MUSÍŠ vygenerovat PŘESNĚ 3 různé varianty scénáře. Ani méně, ani více.
-      
-      STRUKTURA: 
-      Hook (0–2 s): max ~12 slov. Žádné otázky, žádné klišé (zakazuji nudné úvody typu "Proč se trápit s..."). Použij pattern interrupt nebo tajemství (musí vytvořit curiosity gap).
-      Hodnota + closure: Délka textu se MUSÍ řídit pravidlem délky zadané uživatelem. Rozděl mluvené slovo do více bloků akcí/střihů (každé 2-3 věty = nová [Akce]). Poslední věta uzavírá myšlenku.
-      CTA: Každá varianta MUSÍ mít na konci jasnou výzvu k akci (např. "Sleduj mě pro více tipů" nebo "Napiš do komentářů slovo X"). Nevynechávej ji!
-      Režisérský tip: 1 věta. Musí to být konkrétní moderní trik na udržení pozornosti (retention hack - např. "udělej krok ke kameře", "změň úhel", "přidej zvukový efekt swoosh"). Žádné prázdné rady!
-      
-      FORMÁT A STYL (KRITICKÉ): 
-      - Mluvené slovo neoznačuj slovy "Hlas:" ani "Struktura:". Napiš rovnou akci a za to mluvené slovo.
-      - Každá věta = akce v [hranaté závorce], musí navazovat (děj). Přidej 1–2 střihy.
-      - Akce musí být uvěřitelné pro tvůrce s telefonem (např. [Sedíš v autě], [Rychle jdeš chodbou], [Přiblížení na obličej]). ZAKAZUJI "fotobankové" scény jako "záběr na grafy".
-      - DYNAMICKÉ TITULKY: Klíčová slova v mluveném textu MUSÍŠ obalit do dvou hvězdiček (např. **dehydratace**). Dělej to často u důležitých slov! Toto je naprosto kritické pro zobrazení titulků. Žádný formát [Titulek:].
-      
-      
-      FORMÁT ODPOVĚDI:
-      - Mezi variantami dělej VŽDY dva prázdné řádky.
-      - Každou variantu uvoď velkým nadpisem: === VARIANTA X ===
-      - Každou část scénáře napiš na nový řádek.
-      - Režisérský tip dej na konec každé varianty a odsaď ho prázdným řádkem.
+- V mluveném textu NEPOUŽÍVEJ EMOJI (nepatří do dynamických titulků).
 
-        OMEZENÍ: 
-        Žádné vysvětlování, pouze scénáře.
+STRUKTURA A DYNAMIKA:
+Vygeneruješ PŘESNĚ 3 různé varianty scénáře:
+- VARIANTA 1: Hlavní scénář (podle zadání).
+- VARIANTA 2: Alternativní úhel (stejná délka, ale agresivnější nebo tajemnější Hook).
+- VARIANTA 3: Blesková verze (Ultra-rychlých 15 sekund pro max watch-time, vynech pravidlo délky a použij max 40 úderných slov).
 
-      UKÁZKA POŽADOVANÉHO VÝSTUPU:
+PRO KAŽDOU VARIANTU DODRŽ:
+- Hook (0–2 s): max ~12 slov. Žádné otázky, žádné klišé (zakazuji nudné úvody typu "Proč se trápit s..."). Udeř diváka přímo do očí.
+- Multitasking Vizuál: Každá věta = akce v [hranaté závorce]. Akce musí být uvěřitelné a dynamické (např. [Sedíš v autě a startuješ], [Jdeš chodbou s kávou], [Otřeš čočku kamery]). ZAKAZUJI "fotobankové" scény.
+- Dynamické titulky: Klíčová slova v mluveném textu MUSÍŠ obalit do dvou hvězdiček (např. **dehydratace**). Dělej to často!
+
+STRUKTURA TĚLA (KRITICKÉ):
+U videí nad 30 vteřin PŘÍSNĚ používej psychologický rámec PAS (Problem -> Agitate -> Solution).
+1. Problém (Problem): Okamžitě po hooku pojmenuj přesnou bolest, kterou divák řeší.
+2. Zhoršení (Agitate): Nasyp sůl do rány. Vysvětli, proč to, co divák aktuálně dělá, situaci jen zhoršuje a proč přichází o výsledky.
+3. Řešení (Solution): Přines úderné, logické a specifické řešení (co mají udělat jinak). Žádná omáčka, jen tvrdá fakta.
+
+- CTA (Výzva k akci): Každá varianta MUSÍ mít na konci jasnou výzvu k akci, kterou PŘÍSNĚ přizpůsobíš zadané proměnné 'Platforma':
+  * Pokud je Platforma "IG Reels": Vyzvi výhradně ke komentáři konkrétního slova (např. "Napiš do komentářů slovo BYT a pošlu ti návod do zpráv"). 
+  * Pokud je Platforma "YouTube Shorts" nebo "TikTok": Vyzvi k uložení videa pro pozdější použití nebo k odběru/sledování (např. "Ulož si tohle video, ať se nespálíš, a hoď mi follow pro další tipy.").
+
+FORMÁT A STYL (KRITICKÉ): 
+- Mluvené slovo neoznačuj slovy "Hlas:" ani "Struktura:". Napiš rovnou akci a za to mluvené slovo.
+- Mezi variantami dělej VŽDY dva prázdné řádky a vlož oddělovač ---.
+- Každou variantu uvoď velkým nadpisem: === VARIANTA X ===
+- Režisérský tip dej na konec každé varianty (1 věta zaměřená na retention hack nebo konkrétní pohyb před kamerou).
+
+[!!! KRITICKÉ VAROVÁNÍ PRO AI: Níže uvedená ukázka slouží POUZE jako vzor formátování (hranaté závorky pro akce, hvězdičky pro důraz, struktura nadpisů). Je úmyslně zkrácená! V tvém reálném výstupu MUSÍŠ PŘÍSNĚ DODRŽET požadovaný objem slov podle zadané 'Délky'. Nesmíš svůj text zkrátit jen proto, že je ukázka krátká !!!]
+
+UKÁZKA POŽADOVANÉHO VÝSTUPU:
+
 === VARIANTA 1 ===
-[Sedíš v autě, rychlý zoom na obličej]
-Děláš **tuto jednu věc** a proto pořád nemáš klienty.
+📽️[Jdeš po ulici a nasazuješ si sluneční brýle]
+📃Děláš **tuto jednu věc** a proto pořád nemáš klienty.
 
-[Střih na detail, ukážeš na telefon] 
-Místo abys tvořil **hodnotu**, jen kopíruješ ostatní. Změň to **takto**.
+📽️[Zastavíš se a ukážeš prstem přímo do objektivu] 
+📃Místo abys tvořil **reálnou hodnotu**, jen prázdně kopíruješ ostatní. Změň to **takto**.
 
-[Krok vzad, ukážeš prstem]
-Sleduj mě pro **další tipy**.
- 
-Režisérský tip: Přidej "swoosh" zvukový efekt při rychlém zoomu na začátku.
+📽️[Krok vzad, usměješ se]
+📃Sleduj mě pro **další tipy** k růstu.
 
-Vygeneruj přesně 3 takové varianty a mezi každdou variantou vlož oddělovač ---.`;
-
+⛓️‍💥Režisérský tip: Během mluvení dělej tzv. multitasking (např. uprav si bundu nebo odlož klíče), zvedá to dynamiku a udrží pozornost mnohem déle.
+---`;
+    
   const userPrompt = `Napiš mi scénář pro video.
 Platforma: ${platform}
 Téma: ${topic}
